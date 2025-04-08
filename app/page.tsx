@@ -9,16 +9,13 @@ import { PerspectiveCamera, OrbitControls, Sphere, Text } from "@react-three/dre
 import * as THREE from "three";
 import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
-// Augment the WebGLRenderer interface correctly
-declare global {
-    namespace THREE {
-        interface WebGLRenderer {
-            xr: {
-                enabled: boolean;
-                setSession(session: XRSession): Promise<void>;
-            };
-        }
-    }
+// Extend THREE.WebGLRenderer without using namespace
+// This avoids the ESLint error about namespaces
+interface ExtendedWebGLRenderer extends THREE.WebGLRenderer {
+    xr: {
+        enabled: boolean;
+        setSession(session: XRSession): Promise<void>;
+    };
 }
 
 interface Button {
@@ -196,19 +193,18 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
                     const session = await navigator.xr.requestSession("immersive-vr");
                     xrSessionRef.current = session;
 
-                    // Handle the WebGL renderer's XR properties
-                    if ('xr' in gl) {
-                        gl.xr.enabled = true;
-                        await gl.xr.setSession(session);
-                        console.log("VR session started successfully");
+                    // Cast gl to ExtendedWebGLRenderer to access xr property
+                    const renderer = gl as unknown as ExtendedWebGLRenderer;
+                    renderer.xr.enabled = true;
+                    await renderer.xr.setSession(session);
+                    console.log("VR session started successfully");
 
-                        session.addEventListener("end", () => {
-                            console.log("VR session ended");
-                            gl.xr.enabled = false;
-                            xrSessionRef.current = null;
-                            onExit();
-                        });
-                    }
+                    session.addEventListener("end", () => {
+                        console.log("VR session ended");
+                        renderer.xr.enabled = false;
+                        xrSessionRef.current = null;
+                        onExit();
+                    });
                 } catch (error) {
                     console.error("Failed to start VR session:", error);
                 }
