@@ -7,9 +7,12 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
     return (
-        <html lang="en">
-        <head><link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;500;600;700&display=swap" rel="stylesheet" /><link rel="stylesheet" href="/styles/global.css" /></head>
-        <body>{children}</body>
+        <html lang="en" suppressHydrationWarning={true}>
+        <head>
+            <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;500;600;700&display=swap" rel="stylesheet" />
+            <link rel="stylesheet" href="/styles/global.css" />
+        </head>
+        <body suppressHydrationWarning={true}>{children}</body>
         </html>
     );
 }
