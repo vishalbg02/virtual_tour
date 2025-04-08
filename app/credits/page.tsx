@@ -40,7 +40,7 @@ export default function Credits() {
                     <p className={styles.creditText}>Directed by: Dr. Ashok Immanuel V</p>
                     <p className={styles.creditText}>Developed by: [Your Name/Team Name]</p>
                     <p className={styles.creditText}>Special Thanks to: Christ University Faculty & Students</p>
-                    <p className={styles.creditText}>Technology Powered by: xAI (Grok 3), Next.js, Three.js</p>
+                    <p className={styles.creditText}>Technology Powered by: Next.js, Three.js</p>
                 </div>
 
                 {/* Navigation Buttons */}
