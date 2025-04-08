@@ -4,11 +4,33 @@ import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import styles from "./styles.module.css";
 import Link from "next/link";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useThree, useLoader } from "@react-three/fiber";
 import { PerspectiveCamera, OrbitControls, Sphere, Text } from "@react-three/drei";
 import * as THREE from "three";
-import { useLoader } from "@react-three/fiber";
-import { OrbitControls as OrbitControlsImpl } from "three-stdlib"; // Added for proper typing
+import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+
+// Extend the Navigator interface for WebXR
+declare global {
+    interface Navigator {
+        xr?: {
+            isSessionSupported(mode: string): Promise<boolean>;
+            requestSession(mode: string): Promise<XRSession>;
+        };
+    }
+
+    interface XRSession {
+        addEventListener(type: string, listener: EventListener): void;
+        removeEventListener(type: string, listener: EventListener): void;
+        end(): Promise<void>;
+    }
+
+    interface WebGLRenderer {
+        xr: {
+            enabled: boolean;
+            setSession(session: XRSession): Promise<void>;
+        };
+    }
+}
 
 interface Button {
     text: string;
@@ -27,7 +49,7 @@ export default function Home() {
 
     const startVRSession = async () => {
         console.log("VR button clicked");
-        if (navigator.xr) {
+        if (typeof navigator !== 'undefined' && navigator.xr) {
             try {
                 const supported = await navigator.xr.isSessionSupported("immersive-vr");
                 console.log("VR supported:", supported);
@@ -176,23 +198,28 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
     const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg");
     const { gl, camera } = useThree();
     const xrSessionRef = useRef<XRSession | null>(null);
-    const controlsRef = useRef<OrbitControlsImpl | null>(null); // Updated type
+    const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
     useEffect(() => {
-        if (isVRSupported && navigator.xr) {
+        if (isVRSupported && typeof navigator !== 'undefined' && navigator.xr) {
             const startXRSession = async () => {
                 try {
                     const session = await navigator.xr.requestSession("immersive-vr");
                     xrSessionRef.current = session;
-                    gl.xr.enabled = true;
-                    await gl.xr.setSession(session);
-                    console.log("VR session started successfully");
-                    session.addEventListener("end", () => {
-                        console.log("VR session ended");
-                        gl.xr.enabled = false;
-                        xrSessionRef.current = null;
-                        onExit();
-                    });
+
+                    // Handle the WebGL renderer's XR properties
+                    if ('xr' in gl) {
+                        gl.xr.enabled = true;
+                        await gl.xr.setSession(session);
+                        console.log("VR session started successfully");
+
+                        session.addEventListener("end", () => {
+                            console.log("VR session ended");
+                            gl.xr.enabled = false;
+                            xrSessionRef.current = null;
+                            onExit();
+                        });
+                    }
                 } catch (error) {
                     console.error("Failed to start VR session:", error);
                 }
@@ -208,7 +235,9 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
 
         return () => {
             if (xrSessionRef.current) {
-                xrSessionRef.current.end();
+                xrSessionRef.current.end().catch(err => {
+                    console.error("Error ending XR session:", err);
+                });
                 console.log("Cleanup: VR session ended");
             }
         };
@@ -218,7 +247,7 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
 
     return (
         <>
-            <PerspectiveCamera makeDefault position={[0, 0, 0]} fov={90} ref={camera} />
+            <PerspectiveCamera makeDefault position={[0, 0, 0]} fov={90} />
             <ambientLight intensity={1} />
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]}>
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
