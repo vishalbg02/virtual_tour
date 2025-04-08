@@ -1,95 +1,71 @@
+"use client";
+
 import Image from "next/image";
-import styles from "./page.module.css";
+import { useState } from "react";
+import styles from "./styles.module.css";
+import Link from "next/link";
 
 export default function Home() {
-  return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>app/page.tsx</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [activeButton, setActiveButton] = useState<string | null>(null);
 
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
+  const handleButtonHover = (button: string) => setActiveButton(button);
+  const handleButtonLeave = () => setActiveButton(null);
+
+  interface Button {
+    text: string;
+    href: string;
+    external?: boolean;
+  }
+
+  const buttons: Button[] = [
+    { text: "Enter Virtual Tour", href: "https://app.seekbeak.com/v/YbjNDVVm1A7", external: true },
+    { text: "Meet The Team", href: "/meet_the_team" },
+    { text: "About The Project", href: "/about" },
+    { text: "Credits", href: "#" },
+  ];
+
+  return (
+      <main className={styles.main}>
+        <div className={styles.blurBackground}></div>
+        <div className={styles.card}>
+          <div className={styles.logoContainer}>
+            <Image src="/images/christ-logo.png" alt="Christ University Logo" width={150} height={150} className={styles.logo} />
+          </div>
+          <h1 className={styles.title}>Christ University (Central Campus)</h1>
+          <h2 className={styles.subtitle}>VR Experience</h2>
+          <div className={styles.buttonContainer}>
+            {buttons.map((button, index) => (
+                button.external ? (
+                    <Link href={button.href} key={index} target="_blank" rel="noopener noreferrer">
+                      <button
+                          className={`${styles.navButton} ${activeButton === button.text ? styles.active : ""}`}
+                          onMouseEnter={() => handleButtonHover(button.text)}
+                          onMouseLeave={handleButtonLeave}
+                      >
+                        {button.text}
+                      </button>
+                    </Link>
+                ) : (
+                    <Link href={button.href} key={index}>
+                      <button
+                          className={`${styles.navButton} ${activeButton === button.text ? styles.active : ""}`}
+                          onMouseEnter={() => handleButtonHover(button.text)}
+                          onMouseLeave={handleButtonLeave}
+                      >
+                        {button.text}
+                      </button>
+                    </Link>
+                )
+            ))}
+          </div>
+          <div className={styles.creditSection}>
+            <p className={styles.creditText}>Guided by Dr. Suresh K</p>
+            <p className={styles.creditText}>Directed by Dr. Ashok Immanuel V</p>
+          </div>
+        </div>
+        <div className={styles.blackmedLogo}>
+          <Image src="/images/campus-bg.jpg" alt="BlackMed Logo" width={40} height={40} />
         </div>
       </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
   );
 }
