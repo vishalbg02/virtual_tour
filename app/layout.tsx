@@ -1,18 +1,19 @@
+// app/layout.tsx
 import { ReactNode } from "react";
+import { Metadata } from "next";
 
-export const metadata = {
+export const metadata: Metadata = {
     title: "Christ University VR Experience",
     description: "Virtual Tour of Christ University Central Campus",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
     return (
-        <html lang="en" suppressHydrationWarning={true}>
+        <html lang="en" suppressHydrationWarning>
         <head>
-            <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;500;600;700&display=swap" rel="stylesheet" />
-            <link rel="stylesheet" href="/styles/global.css" />
+            {/* Font will be imported via CSS or next/font */}
         </head>
-        <body suppressHydrationWarning={true}>{children}</body>
+        <body suppressHydrationWarning>{children}</body>
         </html>
     );
 }
