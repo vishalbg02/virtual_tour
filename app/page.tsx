@@ -196,7 +196,7 @@ interface VRContentProps {
 
 function VRContent({ onExit, isVRSupported }: VRContentProps) {
     const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg");
-    const { gl, camera } = useThree();
+    const { gl } = useThree();
     const xrSessionRef = useRef<XRSession | null>(null);
     const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
