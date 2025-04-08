@@ -26,7 +26,7 @@ export default function Home() {
 
     const startVRSession = async () => {
         console.log("VR button clicked");
-        if (typeof navigator !== 'undefined' && navigator.xr) {
+        if (typeof navigator !== "undefined" && navigator.xr) {
             try {
                 const supported = await navigator.xr.isSessionSupported("immersive-vr");
                 console.log("VR supported:", supported);
@@ -38,6 +38,7 @@ export default function Home() {
             }
         } else {
             console.warn("WebXR not supported, falling back to 2D mode.");
+            setIsVRSupported(false);
             setVrSession(true); // Fallback to 2D
         }
     };
@@ -178,20 +179,19 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
     const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
     useEffect(() => {
-        if (isVRSupported && typeof navigator !== 'undefined' && navigator.xr) {
+        console.log("VRContent useEffect triggered, isVRSupported:", isVRSupported);
+
+        if (isVRSupported && typeof navigator !== "undefined" && navigator.xr) {
             const startXRSession = async () => {
                 try {
                     const session = await navigator.xr?.requestSession("immersive-vr");
                     if (session) {
                         xrSessionRef.current = session;
-
-                        // Type assertion to WebGLRenderer with WebXRManager
                         const renderer = gl as THREE.WebGLRenderer;
                         if (renderer.xr) {
                             renderer.xr.enabled = true;
                             await renderer.xr.setSession(session);
                             console.log("VR session started successfully");
-
                             session.addEventListener("end", () => {
                                 console.log("VR session ended");
                                 renderer.xr.enabled = false;
@@ -206,16 +206,20 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
             };
             startXRSession();
         } else {
-            console.log("Rendering in 2D mode with OrbitControls");
+            console.log("Initializing 2D mode with OrbitControls");
             if (controlsRef.current) {
                 controlsRef.current.enabled = true;
-                console.log("OrbitControls enabled");
+                controlsRef.current.enableDamping = true;
+                controlsRef.current.dampingFactor = 0.05;
+                controlsRef.current.rotateSpeed = 1.0;
+                controlsRef.current.update();
+                console.log("OrbitControls initialized and enabled for 2D mode");
             }
         }
 
         return () => {
             if (xrSessionRef.current) {
-                xrSessionRef.current.end().catch(err => {
+                xrSessionRef.current.end().catch((err) => {
                     console.error("Error ending XR session:", err);
                 });
                 console.log("Cleanup: VR session ended");
@@ -223,11 +227,9 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
         };
     }, [isVRSupported, gl, onExit]);
 
-    console.log("Rendering VRContent, isVRSupported:", isVRSupported);
-
     return (
         <>
-            <PerspectiveCamera makeDefault position={[0, 0, 0]} fov={90} />
+            <PerspectiveCamera makeDefault position={[0, 0, 0.1]} fov={90} />
             <ambientLight intensity={1} />
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]}>
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
@@ -259,7 +261,6 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
                     enablePan={false}
                     enableRotate={true}
                     target={[0, 0, 0]}
-                    onChange={() => console.log("OrbitControls moved")}
                 />
             )}
         </>
