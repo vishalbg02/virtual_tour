@@ -1,5 +1,6 @@
 /* styles.module.css */
-:global(:root) {
+/* Define variables locally within the module */
+:root {
     --primary-color: #2e3192;
     --secondary-color: #ffffff;
     --accent-color: #6a5acd;
@@ -423,10 +424,6 @@
         width: 220px;
         height: 45px;
     }
-    :global(:root) {
-        --button-width: 220px;
-        --button-height: 45px;
-    }
 }
 
 @media (max-width: 768px) {
@@ -439,10 +436,6 @@
         width: 200px;
         height: 45px;
     }
-    :global(:root) {
-        --button-width: 200px;
-        --button-height: 45px;
-    }
 }
 
 @media (max-width: 480px) {
@@ -454,10 +447,6 @@
         font-size: 0.9rem;
         width: 180px;
         height: 40px;
-    }
-    :global(:root) {
-        --button-width: 180px;
-        --button-height: 40px;
     }
     .creditText { font-size: 0.9rem; }
     .blackmedLogo img { width: 30px; height: 30px; }
