@@ -9,26 +9,15 @@ import { PerspectiveCamera, OrbitControls, Sphere, Text } from "@react-three/dre
 import * as THREE from "three";
 import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
-// Extend the Navigator interface for WebXR
+// Augment the WebGLRenderer interface correctly
 declare global {
-    interface Navigator {
-        xr?: {
-            isSessionSupported(mode: string): Promise<boolean>;
-            requestSession(mode: string): Promise<XRSession>;
-        };
-    }
-
-    interface XRSession {
-        addEventListener(type: string, listener: EventListener): void;
-        removeEventListener(type: string, listener: EventListener): void;
-        end(): Promise<void>;
-    }
-
-    interface WebGLRenderer {
-        xr: {
-            enabled: boolean;
-            setSession(session: XRSession): Promise<void>;
-        };
+    namespace THREE {
+        interface WebGLRenderer {
+            xr: {
+                enabled: boolean;
+                setSession(session: XRSession): Promise<void>;
+            };
+        }
     }
 }
 
