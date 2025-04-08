@@ -1,6 +1,5 @@
 /* styles.module.css */
-/* Define variables locally within the module */
-:root {
+.root {
     --primary-color: #2e3192;
     --secondary-color: #ffffff;
     --accent-color: #6a5acd;
@@ -308,7 +307,7 @@
     animation: fadeInUp 0.8s ease-out 1.4s forwards;
 }
 
-.creditText {
+.creditText shopper {
     font-size: 1rem;
     margin: 0.25rem 0;
 }

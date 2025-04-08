@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import styles from "../styles.module.css"; // Updated path
+import styles from "../styles.module.css";
 import Link from "next/link";
 
 export default function MeetTheTeam() {
@@ -39,7 +39,7 @@ export default function MeetTheTeam() {
             imageSrc: "/images/team/vishal.png",
             description: "3D modeling and virtual environment design.",
             class: "BCA",
-            regNo: "2341669"
+            regNo: "2341669",
         },
         {
             name: "Alex KH",
@@ -47,7 +47,7 @@ export default function MeetTheTeam() {
             imageSrc: "/images/team/alex.jpg",
             description: "User interface and experience design.",
             class: "MSC AIML",
-            regNo: "2448507"
+            regNo: "2448507",
         },
         {
             name: "Sambhav Jain",
@@ -55,7 +55,7 @@ export default function MeetTheTeam() {
             imageSrc: "/images/team/sambhav.jpg",
             description: "Content and information architecture.",
             class: "BCA",
-            regNo: "2341658"
+            regNo: "2341658",
         },
         {
             name: "Varun C Araballi",
@@ -63,7 +63,7 @@ export default function MeetTheTeam() {
             imageSrc: "/images/team/varun.jpg",
             description: "Technical support and testing.",
             class: "MSC AIML",
-            regNo: "2448555"
+            regNo: "2448555",
         },
         {
             name: "Sriniketh",
@@ -71,7 +71,7 @@ export default function MeetTheTeam() {
             imageSrc: "/images/team/sriniketh.jpg",
             description: "Technical support and testing.",
             class: "BCA",
-            regNo: "2341660"
+            regNo: "2341660",
         },
         {
             name: "Vyshnavi Kathrine",
@@ -79,7 +79,7 @@ export default function MeetTheTeam() {
             imageSrc: "/images/team/vyshnavi.jpg",
             description: "Technical support and testing.",
             class: "MSC AIML",
-            regNo: "2448558"
+            regNo: "2448558",
         },
         {
             name: "Isar Kaur",
@@ -87,15 +87,17 @@ export default function MeetTheTeam() {
             imageSrc: "/images/team/isar.jpeg",
             description: "Technical support and testing.",
             class: "BCA",
-            regNo: "2341631"
+            regNo: "2341631",
         },
     ];
 
     return (
-        <main className={styles.main}>
+        <main className={`${styles.root} ${styles.main}`}>
             <div className={styles.blurBackground}></div>
             <div className={styles.card}>
-                <Link href="/" className={styles.backButton}>← Back</Link>
+                <Link href="/" className={styles.backButton}>
+                    ← Back
+                </Link>
                 <div className={styles.logoContainer}>
                     <Image src="/images/christ-logo.png" alt="Christ University Logo" width={100} height={100} className={styles.logo} />
                 </div>

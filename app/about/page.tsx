@@ -1,15 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import styles from "../styles.module.css"; // Updated path
+import styles from "../styles.module.css";
 import Link from "next/link";
 
 export default function About() {
     return (
-        <main className={styles.main}>
+        <main className={`${styles.root} ${styles.main}`}>
             <div className={styles.blurBackground}></div>
             <div className={styles.card}>
-                <Link href="/" className={styles.backButton}>← Back</Link>
+                <Link href="/" className={styles.backButton}>
+                    ← Back
+                </Link>
                 <div className={styles.logoContainer}>
                     <Image src="/images/christ-logo.png" alt="Christ University Logo" width={120} height={120} className={styles.logo} />
                 </div>
@@ -19,7 +21,7 @@ export default function About() {
                     <div className={styles.contentBox}>
                         <h3 className={styles.contentTitle}>Project Overview</h3>
                         <p className={styles.contentText}>
-                            The VR Experience project offers an immersive virtual tour of Christ University’s Central Campus, showcasing its facilities, classrooms, and landmarks in a 3D environment.
+                            The Christ University VR Experience is a cutting-edge digital initiative that brings the vibrancy of our campus to life through immersive virtual reality. Designed for prospective students, parents, and visitors, this interactive platform offers a seamless way to explore the Central Campus from anywhere in the world. Powered by the latest VR and web technologies, this experience provides a 360° virtual walkthrough of key landmarks, state-of-the-art facilities, and the dynamic academic environment that defines Christ University. With intuitive navigation and stunning visuals, users can engage with the campus like never before—enhancing accessibility and offering a glimpse into life at Christ. Step into the future of campus exploration. Discover Christ University, your way.
                         </p>
                     </div>
                     <div className={styles.contentBox}>

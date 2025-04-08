@@ -25,7 +25,7 @@ export default function Home() {
   ];
 
   return (
-      <main className={styles.main}>
+      <main className={`${styles.root} ${styles.main}`}>
         <div className={styles.blurBackground}></div>
         <div className={styles.card}>
           <div className={styles.logoContainer}>
@@ -34,7 +34,7 @@ export default function Home() {
           <h1 className={styles.title}>Christ University (Central Campus)</h1>
           <h2 className={styles.subtitle}>VR Experience</h2>
           <div className={styles.buttonContainer}>
-            {buttons.map((button, index) => (
+            {buttons.map((button, index) =>
                 button.external ? (
                     <Link href={button.href} key={index} target="_blank" rel="noopener noreferrer">
                       <button
@@ -56,7 +56,7 @@ export default function Home() {
                       </button>
                     </Link>
                 )
-            ))}
+            )}
           </div>
           <div className={styles.creditSection}>
             <p className={styles.creditText}>Guided by Dr. Suresh K</p>
