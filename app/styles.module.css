@@ -1,5 +1,5 @@
 /* styles.module.css */
-:root {
+.root {
     --primary-color: #2e3192;
     --secondary-color: #ffffff;
     --accent-color: #6a5acd;
@@ -39,12 +39,25 @@
     animation: fadeIn 2s ease-in-out forwards;
 }
 
+/* Apply variables to all elements within .main */
+.main {
+    --primary-color: #2e3192;
+    --secondary-color: #ffffff;
+    --accent-color: #6a5acd;
+    --text-color: #333;
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    --font-main: "League Spartan", "Arial", sans-serif;
+    --button-width: 250px;
+    --button-height: 50px;
+    --transition-speed: 0.3s;
+}
+
 .card {
     background: rgba(255, 255, 255, 0.95);
     border-radius: 20px;
     padding: 2.5rem 2rem;
     width: 100%;
-    max-width: 700px;
+    max-width: 500px;
     box-shadow: var(--shadow);
     z-index: 1;
     animation: slideUp 0.8s ease-out forwards;
@@ -234,6 +247,17 @@
     font-weight: 500;
 }
 
+.memberClass, .memberRegNo {
+    color: var(--text-color);
+    font-size: 0.85rem;
+    margin: 0.25rem 0;
+    font-style: italic;
+}
+
+.memberRegNo {
+    font-weight: 500;
+}
+
 .memberDescription {
     color: var(--text-color);
     font-size: 0.9rem;
@@ -414,6 +438,12 @@
 }
 
 /* Responsive Design */
+.main {
+    /* Responsive variables */
+    --button-width: 250px;
+    --button-height: 50px;
+}
+
 @media (max-width: 1024px) {
     .card { max-width: 420px; }
     .title { font-size: 1.6rem; }
@@ -423,7 +453,7 @@
         width: 220px;
         height: 45px;
     }
-    :root {
+    .main {
         --button-width: 220px;
         --button-height: 45px;
     }
@@ -439,7 +469,7 @@
         width: 200px;
         height: 45px;
     }
-    :root {
+    .main {
         --button-width: 200px;
         --button-height: 45px;
     }
@@ -455,7 +485,7 @@
         width: 180px;
         height: 40px;
     }
-    :root {
+    .main {
         --button-width: 180px;
         --button-height: 40px;
     }
