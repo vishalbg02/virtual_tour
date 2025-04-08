@@ -1,14 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import styles from "./styles.module.css";
 import Link from "next/link";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { PerspectiveCamera, OrbitControls, Sphere, Text } from "@react-three/drei";
 import * as THREE from "three";
 import { useLoader } from "@react-three/fiber";
-import { XR } from "@react-three/xr";
 
 interface Button {
     text: string;
@@ -20,25 +19,26 @@ interface Button {
 export default function Home() {
     const [activeButton, setActiveButton] = useState<string | null>(null);
     const [vrSession, setVrSession] = useState<boolean>(false);
+    const [isVRSupported, setIsVRSupported] = useState<boolean>(false);
 
     const handleButtonHover = (button: string) => setActiveButton(button);
     const handleButtonLeave = () => setActiveButton(null);
 
     const startVRSession = async () => {
+        console.log("VR button clicked");
         if (navigator.xr) {
             try {
-                const isSupported = await navigator.xr.isSessionSupported("immersive-vr");
-                if (isSupported) {
-                    setVrSession(true);
-                } else {
-                    alert("VR is not supported on this device or browser.");
-                }
+                const supported = await navigator.xr.isSessionSupported("immersive-vr");
+                console.log("VR supported:", supported);
+                setIsVRSupported(supported);
+                setVrSession(true);
             } catch (error) {
                 console.error("Error checking VR support:", error);
-                alert("An error occurred while checking VR support.");
+                setVrSession(true); // Fallback to 2D mode
             }
         } else {
-            alert("WebXR is not supported in this browser.");
+            console.warn("WebXR not supported, falling back to 2D mode.");
+            setVrSession(true); // Fallback to 2D
         }
     };
 
@@ -105,6 +105,7 @@ export default function Home() {
                         justifyContent: "center",
                         cursor: "pointer",
                         boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
+                        zIndex: 1000, // Ensure clickable
                     }}
                     onClick={startVRSession}
                     title="Enter VR Preview"
@@ -117,7 +118,7 @@ export default function Home() {
                     </svg>
                 </div>
             )}
-            {vrSession && <EnhancedVRScene onExit={() => setVrSession(false)} />}
+            {vrSession && <EnhancedVRScene onExit={() => setVrSession(false)} isVRSupported={isVRSupported} />}
             <div className={styles.blackmedLogo}>
                 <Image src="/images/campus-bg.jpg" alt="BlackMed Logo" width={40} height={40} />
             </div>
@@ -127,44 +128,16 @@ export default function Home() {
 
 interface VRSceneProps {
     onExit: () => void;
+    isVRSupported: boolean;
 }
 
-function EnhancedVRScene({ onExit }: VRSceneProps) {
-    const texture = useLoader(THREE.TextureLoader, "/images/campus-360.jpg");
-
+function EnhancedVRScene({ onExit, isVRSupported }: VRSceneProps) {
     return (
         <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
             <Canvas gl={{ antialias: true }}>
-                <XR>
-                    <PerspectiveCamera makeDefault position={[0, 0, 0]} fov={90} />
-                    <ambientLight intensity={1} />
-                    <Sphere args={[500, 60, 40]} scale={[1, 1, -1]}>
-                        <meshBasicMaterial map={texture} side={THREE.BackSide} />
-                    </Sphere>
-                    <Text
-                        position={[0, 1, -5]}
-                        fontSize={0.5}
-                        color="white"
-                        anchorX="center"
-                        anchorY="middle"
-                        font="/fonts/LeagueSpartan-Bold.ttf"
-                    >
-                        Welcome to Christ University VR
-                    </Text>
-                    <Text
-                        position={[0, 0.5, -5]}
-                        fontSize={0.3}
-                        color="white"
-                        anchorX="center"
-                        anchorY="middle"
-                        font="/fonts/LeagueSpartan-Bold.ttf"
-                    >
-                        Use controllers or gaze to explore
-                    </Text>
-                    <OrbitControls enableZoom={false} enablePan={false} />
-                </XR>
+                <VRContent onExit={onExit} isVRSupported={isVRSupported} />
             </Canvas>
-            {/* VR Exit Symbol */}
+            {/* Exit Symbol */}
             <div
                 style={{
                     position: "absolute",
@@ -179,6 +152,7 @@ function EnhancedVRScene({ onExit }: VRSceneProps) {
                     justifyContent: "center",
                     cursor: "pointer",
                     boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
+                    zIndex: 1000, // Ensure clickable
                 }}
                 onClick={onExit}
                 title="Exit VR Preview"
@@ -189,5 +163,95 @@ function EnhancedVRScene({ onExit }: VRSceneProps) {
                 </svg>
             </div>
         </div>
+    );
+}
+
+interface VRContentProps {
+    onExit: () => void;
+    isVRSupported: boolean;
+}
+
+function VRContent({ onExit, isVRSupported }: VRContentProps) {
+    const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg");
+    const { gl, camera } = useThree();
+    const xrSessionRef = useRef<XRSession | null>(null);
+    const controlsRef = useRef<any>(null); // Ref for OrbitControls
+
+    useEffect(() => {
+        if (isVRSupported && navigator.xr) {
+            const startXRSession = async () => {
+                try {
+                    const session = await navigator.xr.requestSession("immersive-vr");
+                    xrSessionRef.current = session;
+                    gl.xr.enabled = true;
+                    await gl.xr.setSession(session);
+                    console.log("VR session started successfully");
+                    session.addEventListener("end", () => {
+                        console.log("VR session ended");
+                        gl.xr.enabled = false;
+                        xrSessionRef.current = null;
+                        onExit();
+                    });
+                } catch (error) {
+                    console.error("Failed to start VR session:", error);
+                }
+            };
+            startXRSession();
+        } else {
+            console.log("Rendering in 2D mode with OrbitControls");
+            if (controlsRef.current) {
+                controlsRef.current.enabled = true;
+                console.log("OrbitControls enabled");
+            }
+        }
+
+        return () => {
+            if (xrSessionRef.current) {
+                xrSessionRef.current.end();
+                console.log("Cleanup: VR session ended");
+            }
+        };
+    }, [isVRSupported, gl, onExit]);
+
+    console.log("Rendering VRContent, isVRSupported:", isVRSupported);
+
+    return (
+        <>
+            <PerspectiveCamera makeDefault position={[0, 0, 0]} fov={90} ref={camera} />
+            <ambientLight intensity={1} />
+            <Sphere args={[500, 60, 40]} scale={[1, 1, -1]}>
+                <meshBasicMaterial map={texture} side={THREE.BackSide} />
+            </Sphere>
+            <Text
+                position={[0, 1, -5]}
+                fontSize={0.5}
+                color="white"
+                anchorX="center"
+                anchorY="middle"
+                font="/fonts/LeagueSpartan-Bold.ttf"
+            >
+                Welcome to Christ University VR
+            </Text>
+            <Text
+                position={[0, 0.5, -5]}
+                fontSize={0.3}
+                color="white"
+                anchorX="center"
+                anchorY="middle"
+                font="/fonts/LeagueSpartan-Bold.ttf"
+            >
+                {isVRSupported ? "Use controllers or gaze" : "Use mouse or touch"} to explore
+            </Text>
+            {!isVRSupported && (
+                <OrbitControls
+                    ref={controlsRef}
+                    enableZoom={false}
+                    enablePan={false}
+                    enableRotate={true}
+                    target={[0, 0, 0]}
+                    onChange={() => console.log("OrbitControls moved")}
+                />
+            )}
+        </>
     );
 }
