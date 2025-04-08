@@ -12,6 +12,7 @@ export default function About() {
                 <Link href="/" className={styles.backButton}>
                     ← Back
                 </Link>
+                <div style={{ marginTop: "70px" }}></div>
                 <div className={styles.logoContainer}>
                     <Image src="/images/christ-logo.png" alt="Christ University Logo" width={120} height={120} className={styles.logo} />
                 </div>

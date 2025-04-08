@@ -10,9 +10,9 @@ export default function MeetTheTeam() {
 
     interface TeamMember {
         name: string;
-        role: string;
+        role?: string;
         imageSrc: string;
-        description: string;
+        description?: string;
         class?: string;
         regNo?: string;
         link?: string;
@@ -35,57 +35,43 @@ export default function MeetTheTeam() {
         },
         {
             name: "Vishal B G",
-            role: "VR Developer",
             imageSrc: "/images/team/vishal.png",
-            description: "3D modeling and virtual environment design.",
             class: "BCA",
             regNo: "2341669",
         },
         {
             name: "Alex KH",
-            role: "UI/UX Designer",
             imageSrc: "/images/team/alex.jpg",
-            description: "User interface and experience design.",
             class: "MSC AIML",
             regNo: "2448507",
         },
         {
             name: "Sambhav Jain",
-            role: "Content Creator",
             imageSrc: "/images/team/sambhav.jpg",
-            description: "Content and information architecture.",
             class: "BCA",
             regNo: "2341658",
         },
         {
             name: "Varun C Araballi",
-            role: "Technical Support",
             imageSrc: "/images/team/varun.jpg",
-            description: "Technical support and testing.",
             class: "MSC AIML",
             regNo: "2448555",
         },
         {
             name: "Sriniketh",
-            role: "Technical Support",
             imageSrc: "/images/team/sriniketh.jpg",
-            description: "Technical support and testing.",
             class: "BCA",
             regNo: "2341660",
         },
         {
             name: "Vyshnavi Kathrine",
-            role: "Technical Support",
             imageSrc: "/images/team/vyshnavi.jpg",
-            description: "Technical support and testing.",
             class: "MSC AIML",
             regNo: "2448558",
         },
         {
             name: "Isar Kaur",
-            role: "Technical Support",
             imageSrc: "/images/team/isar.jpeg",
-            description: "Technical support and testing.",
             class: "BCA",
             regNo: "2341631",
         },
@@ -98,6 +84,9 @@ export default function MeetTheTeam() {
                 <Link href="/" className={styles.backButton}>
                     ← Back
                 </Link>
+
+                <div style={{ marginTop: "70px" }}></div> {/* Added space after back button */}
+
                 <div className={styles.logoContainer}>
                     <Image src="/images/christ-logo.png" alt="Christ University Logo" width={100} height={100} className={styles.logo} />
                 </div>
@@ -123,10 +112,10 @@ export default function MeetTheTeam() {
                                     member.name
                                 )}
                             </h3>
-                            <p className={styles.memberRole}>{member.role}</p>
+                            {member.role && <p className={styles.memberRole}>{member.role}</p>}
                             {member.class && <p className={styles.memberClass}>{member.class}</p>}
                             {member.regNo && <p className={styles.memberRegNo}>Reg No: {member.regNo}</p>}
-                            <p className={styles.memberDescription}>{member.description}</p>
+                            {member.description && <p className={styles.memberDescription}>{member.description}</p>}
                         </div>
                     ))}
                 </div>
