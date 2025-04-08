@@ -8,6 +8,7 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { PerspectiveCamera, OrbitControls, Sphere, Text } from "@react-three/drei";
 import * as THREE from "three";
 import { useLoader } from "@react-three/fiber";
+import { OrbitControls as OrbitControlsImpl } from "three-stdlib"; // Added for proper typing
 
 interface Button {
     text: string;
@@ -175,7 +176,7 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
     const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg");
     const { gl, camera } = useThree();
     const xrSessionRef = useRef<XRSession | null>(null);
-    const controlsRef = useRef<any>(null); // Ref for OrbitControls
+    const controlsRef = useRef<OrbitControlsImpl | null>(null); // Updated type
 
     useEffect(() => {
         if (isVRSupported && navigator.xr) {
