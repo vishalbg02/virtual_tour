@@ -9,9 +9,6 @@ import { PerspectiveCamera, OrbitControls, Sphere, Text } from "@react-three/dre
 import * as THREE from "three";
 import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
-// Instead of extending the interface, we'll just use type assertions where needed
-// This is a safer approach that won't conflict with existing types
-
 interface Button {
     text: string;
     href: string;
@@ -108,7 +105,7 @@ export default function Home() {
                         justifyContent: "center",
                         cursor: "pointer",
                         boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
-                        zIndex: 1000, // Ensure clickable
+                        zIndex: 1000,
                     }}
                     onClick={startVRSession}
                     title="Enter VR Preview"
@@ -155,7 +152,7 @@ function EnhancedVRScene({ onExit, isVRSupported }: VRSceneProps) {
                     justifyContent: "center",
                     cursor: "pointer",
                     boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
-                    zIndex: 1000, // Ensure clickable
+                    zIndex: 1000,
                 }}
                 onClick={onExit}
                 title="Exit VR Preview"
@@ -188,8 +185,8 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
                     if (session) {
                         xrSessionRef.current = session;
 
-                        // Use any type assertion to safely access xr property
-                        const renderer = gl as any;
+                        // Type assertion to WebGLRenderer with WebXRManager
+                        const renderer = gl as THREE.WebGLRenderer;
                         if (renderer.xr) {
                             renderer.xr.enabled = true;
                             await renderer.xr.setSession(session);
