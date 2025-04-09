@@ -118,57 +118,46 @@ function Home() {
     return (
         <main className={`${styles.root} ${styles.main}`}>
             <div className={styles.blurBackground}></div>
-            {/* Render CardUI normally when not in VR */}
-            {!vrSession && <CardUI activeButton={activeButton} setActiveButton={setActiveButton} />}
             {!vrSession && (
-                <div
-                    style={{
-                        position: "absolute",
-                        top: "20px",
-                        right: "20px",
-                        width: "40px",
-                        height: "40px",
-                        background: "#fff",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "pointer",
-                        boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
-                        zIndex: 1000,
-                    }}
-                    onClick={startVRSession}
-                    title="Enter VR Preview"
-                >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2">
-                        <path d="M2 8v8h6l4 4 4-4h6V8H2z" />
-                        <path d="M10 12h4" />
-                        <path d="M10 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0z" />
-                        <path d="M14 12a2 2 0 1 1 4 0 2 2 0 0 1-4 0z" />
-                    </svg>
-                </div>
+                <>
+                    <CardUI activeButton={activeButton} setActiveButton={setActiveButton} />
+                    <div
+                        style={{
+                            position: "absolute",
+                            top: "20px",
+                            right: "20px",
+                            width: "40px",
+                            height: "40px",
+                            background: "#fff",
+                            borderRadius: "50%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
+                            zIndex: 1000,
+                        }}
+                        onClick={startVRSession}
+                        title="Enter VR Preview"
+                    >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2">
+                            <path d="M2 8v8h6l4 4 4-4h6V8H2z" />
+                            <path d="M10 12h4" />
+                            <path d="M10 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0z" />
+                            <path d="M14 12a2 2 0 1 1 4 0 2 2 0 0 1-4 0z" />
+                        </svg>
+                    </div>
+                </>
             )}
             {vrSession && (
-                <>
-                    <EnhancedVRScene
-                        onExit={() => setVrSession(false)}
-                        isVRSupported={isVRSupported}
-                        deviceType={deviceType}
-                        activeButton={activeButton}
-                        setActiveButton={setActiveButton}
-                        buttonRefs={buttonRefs}
-                    />
-                    {/* Render CardUI as overlay in mobile VR */}
-                    {deviceType === "mobile" && (
-                        <div className={styles.mobileVrOverlay}>
-                            <CardUI
-                                activeButton={activeButton}
-                                setActiveButton={setActiveButton}
-                                buttonRefs={buttonRefs}
-                            />
-                        </div>
-                    )}
-                </>
+                <EnhancedVRScene
+                    onExit={() => setVrSession(false)}
+                    isVRSupported={isVRSupported}
+                    deviceType={deviceType}
+                    activeButton={activeButton}
+                    setActiveButton={setActiveButton}
+                    buttonRefs={buttonRefs}
+                />
             )}
             <div className={styles.blackmedLogo}>
                 <Image src="/images/campus-bg.jpg" alt="BlackMed Logo" width={40} height={40} />
@@ -346,7 +335,7 @@ function VRContent({
 
     useEffect(() => {
         if (deviceType === "mobile" || deviceType === "vr") {
-            setGazeTarget(0) // Ensure gaze pointer is always active in mobile/vr
+            setGazeTarget(0) // Ensure gaze pointer is active in mobile/vr
         }
     }, [deviceType])
 
@@ -488,7 +477,6 @@ function VRContent({
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
             </Sphere>
-            {/* Render CardUI in 3D space for both desktop and VR */}
             <group position={[0, 0, -8]}>
                 <Html transform occlude center>
                     <div style={{ width: "600px", transform: "scale(0.8)" }}>
@@ -521,6 +509,5 @@ function VRContent({
         </>
     )
 }
-
 
 export default Home
