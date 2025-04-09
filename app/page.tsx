@@ -182,7 +182,7 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setA
                     deviceType={deviceType}
                     activeButton={activeButton}
                     setActiveButton={setActiveButton}
-                    buttonRefs={buttonRefs} // Pass buttonRefs to VRContent
+                    buttonRefs={buttonRefs}
                 />
             </Canvas>
             <div
@@ -199,7 +199,7 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setA
                     justifyContent: "center",
                     cursor: "pointer",
                     boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
-                    zIndex: 1001, // Increased z-index
+                    zIndex: 1001,
                 }}
                 onClick={onExit}
                 title="Exit VR Preview"
@@ -221,13 +221,13 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setA
                         color: "white",
                         borderRadius: "20px",
                         fontFamily: "sans-serif",
-                        zIndex: 1001, // Increased z-index
+                        zIndex: 1001,
                     }}
                 >
                     Tilt or swipe to look around
                 </div>
             )}
-            {/* Always render CardUI as an overlay in mobile VR */}
+            {/* Always render CardUI as an overlay in mobile VR with improved styling */}
             {deviceType === "mobile" && (
                 <div className={styles.mobileVrOverlay}>
                     <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />

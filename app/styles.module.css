@@ -530,17 +530,36 @@
         height: 30px;
     }
     .mobileVrOverlay {
-        position: fixed; /* Changed to fixed for consistent overlay */
+        position: fixed;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: 90vw;
+        width: 90%;
         max-width: 380px;
-        z-index: 1001; /* Increased z-index to stay above canvas */
+        z-index: 1001;
         pointer-events: auto;
-        background: rgba(255, 255, 255, 0.95); /* Ensure background is visible */
+        background: rgba(255, 255, 255, 0.95);
         border-radius: 20px;
         padding: 1.5rem;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .mobileVrOverlay .card {
+        position: relative;
+        max-width: 100%;
+        width: 100%;
+        padding: 1rem;
+        background: none;
+        box-shadow: none;
+        animation: none;
+        transform: none;
+    }
+
+    .mobileVrOverlay .card:hover {
+        transform: none;
+        box-shadow: none;
     }
 }
