@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import Image from "next/image"
 import { useState, useEffect, useRef } from "react"
 import styles from "./styles.module.css"
@@ -10,11 +9,6 @@ import { Canvas, useThree, useLoader, useFrame } from "@react-three/fiber"
 import { PerspectiveCamera, OrbitControls, Sphere, Html } from "@react-three/drei"
 import * as THREE from "three"
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
-
-// Custom interface for iOS requestPermission pattern
-interface DeviceOrientationEventiOS {
-    requestPermission: () => Promise<string>
-}
 
 interface Button {
     text: string
@@ -67,7 +61,13 @@ function CardUI({
                         rel={button.external ? "noopener noreferrer" : undefined}
                     >
                         <button
-                            ref={buttonRefs ? (el: HTMLButtonElement | null) => void (buttonRefs.current[index] = el) : undefined}
+                            ref={
+                                buttonRefs
+                                    ? (el: HTMLButtonElement | null) => {
+                                        buttonRefs.current[index] = el
+                                    }
+                                    : undefined
+                            }
                             className={`${styles.navButton} ${activeButton === button.text ? styles.active : ""}`}
                             onMouseEnter={() => handleButtonHover(button.text)}
                             onMouseLeave={handleButtonLeave}
@@ -92,34 +92,23 @@ function Home() {
     const [deviceType, setDeviceType] = useState<DeviceType>("desktop")
 
     useEffect(() => {
-        // Force detect mobile more aggressively
         const userAgent = navigator.userAgent.toLowerCase()
         const isMobile = /mobile|android|iphone|ipad|tablet|mobi/i.test(userAgent) || window.innerWidth < 768
         setDeviceType(isMobile ? "mobile" : "desktop")
-        console.log("Device detected as:", isMobile ? "mobile" : "desktop")
     }, [])
 
     const startVRSession = async () => {
-        console.log("VR button clicked")
         if ("xr" in navigator) {
-            try {
-                const isSupported = await (
-                    navigator as Navigator & {
-                        xr: { isSessionSupported(mode: string): Promise<boolean> }
-                    }
-                ).xr.isSessionSupported("immersive-vr")
-                console.log("VR supported:", isSupported)
-                setIsVRSupported(isSupported)
-                if (isSupported) {
-                    setDeviceType("vr")
+            const xr = navigator as Navigator & {
+                xr: {
+                    isSessionSupported: (mode: string) => Promise<boolean>
                 }
-                setVrSession(true)
-            } catch (error) {
-                console.error("Error checking VR support:", error)
-                setVrSession(true)
             }
+            const isSupported = await xr.xr.isSessionSupported("immersive-vr")
+            setIsVRSupported(isSupported)
+            setDeviceType(isSupported ? "vr" : deviceType)
+            setVrSession(true)
         } else {
-            console.warn("WebXR not supported, falling back to standard mode.")
             setIsVRSupported(false)
             setVrSession(true)
         }
@@ -184,12 +173,7 @@ interface VRSceneProps {
 function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setActiveButton }: VRSceneProps) {
     return (
         <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
-            <Canvas
-                gl={{ antialias: true, alpha: false }}
-                onCreated={({ gl }) => {
-                    gl.setClearColor(new THREE.Color(0x000000))
-                }}
-            >
+            <Canvas gl={{ antialias: true, alpha: false }}>
                 <VRContent
                     onExit={onExit}
                     isVRSupported={isVRSupported}
@@ -265,14 +249,7 @@ function GazePointer({ active }: { active: boolean }) {
 
     return (
         <Html center>
-            <div
-                style={{
-                    position: "relative",
-                    width: "50px",
-                    height: "50px",
-                    pointerEvents: "none",
-                }}
-            >
+            <div style={{ position: "relative", width: "50px", height: "50px", pointerEvents: "none" }}>
                 <div
                     style={{
                         position: "absolute",
@@ -321,81 +298,27 @@ function GazePointer({ active }: { active: boolean }) {
                         transition: "all 0.3s ease",
                     }}
                 ></div>
-                {active && (
-                    <div
-                        style={{
-                            position: "absolute",
-                            width: "100%",
-                            height: "100%",
-                            animation: "particle-spin 2s linear infinite",
-                        }}
-                    >
-                        {[...Array(8)].map((_, i) => (
-                            <div
-                                key={i}
-                                style={{
-                                    position: "absolute",
-                                    width: "4px",
-                                    height: "4px",
-                                    background: "rgba(59, 130, 246, 0.5)",
-                                    borderRadius: "50%",
-                                    transform: `rotate(${i * 45}deg) translateY(25px)`,
-                                    animation: `particle-pulse 1.5s ease-in-out infinite ${i * 0.1}s`,
-                                }}
-                            />
-                        ))}
-                    </div>
-                )}
             </div>
-            <style jsx>{`
-                @keyframes particle-spin {
-                    from {
-                        transform: rotate(0deg);
-                    }
-                    to {
-                        transform: rotate(360deg);
-                    }
-                }
-                @keyframes particle-pulse {
-                    0%,
-                    100% {
-                        opacity: 0.3;
-                        transform: rotate(0deg) translateY(25px) scale(0.5);
-                    }
-                    50% {
-                        opacity: 0.8;
-                        transform: rotate(0deg) translateY(30px) scale(1);
-                    }
-                }
-            `}</style>
         </Html>
     )
 }
 
 function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveButton }: VRContentProps) {
-    const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg", undefined, (err) => {
-        console.error("Texture loading error:", err)
-    })
-
-    const { gl, camera, scene } = useThree() // Restored 'gl' for renderer access
+    const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg")
+    const { camera, gl, scene } = useThree()
     const controlsRef = useRef<OrbitControlsImpl | null>(null)
-    const [gyroscopePermission, setGyroscopePermission] = useState<boolean | null>(null)
     const cleanupRef = useRef<(() => void) | null>(null)
     const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
     const [gazeTarget, setGazeTarget] = useState<number | null>(null)
     const gazeTimerRef = useRef<number>(0)
-    const gazeThreshold = 3
+    const gazeThreshold = 2
 
-    // Always show gaze pointer on mobile
     useEffect(() => {
-        if (deviceType === "mobile") {
-            console.log("Mobile device detected, showing gaze pointer")
-            // Force show gaze pointer
-            setGazeTarget(0)
+        if (deviceType === "mobile" || deviceType === "vr") {
+            setGazeTarget(0) // Ensure gaze pointer is always active in mobile/vr
         }
     }, [deviceType])
 
-    // Gaze-based interaction for HTML buttons
     useFrame((state, delta) => {
         if (deviceType === "vr" || deviceType === "mobile") {
             const raycaster = new THREE.Raycaster()
@@ -407,7 +330,7 @@ function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveB
                     const vector = new THREE.Vector3(
                         ((rect.left + rect.width / 2) / window.innerWidth) * 2 - 1,
                         -((rect.top + rect.height / 2) / window.innerHeight) * 2 + 1,
-                        -8, // Match the Html group's z-position (updated from -5 to -8)
+                        -8,
                     )
                     vector.unproject(camera)
                     const dir = vector.sub(camera.position).normalize()
@@ -416,11 +339,11 @@ function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveB
                     const dist = camera.position.distanceTo(pos)
                     return { index, distance: dist }
                 })
-                .filter(Boolean)
-                .sort((a, b) => (a?.distance ?? Number.POSITIVE_INFINITY) - (b?.distance ?? Number.POSITIVE_INFINITY))
+                .filter((item): item is { index: number; distance: number } => item !== null)
+                .sort((a, b) => a.distance - b.distance)
 
             if (intersects.length > 0) {
-                const closest = intersects[0]!
+                const closest = intersects[0]
                 if (gazeTarget === closest.index) {
                     gazeTimerRef.current += delta
                     if (gazeTimerRef.current >= gazeThreshold) {
@@ -432,215 +355,133 @@ function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveB
                     setGazeTarget(closest.index)
                     gazeTimerRef.current = 0
                 }
-            } else if (deviceType !== "mobile") {
-                // Keep gaze target for mobile even when not hovering
-                setGazeTarget(null)
-                gazeTimerRef.current = 0
             }
         }
     })
 
-    const setupDeviceOrientation = async (): Promise<boolean> => {
-        try {
-            let permissionGranted = true
-            if (
-                typeof window !== "undefined" &&
-                window.DeviceOrientationEvent &&
-                "requestPermission" in DeviceOrientationEvent
-            ) {
-                try {
-                    const requestPermission = (DeviceOrientationEvent as unknown as DeviceOrientationEventiOS).requestPermission
-                    const permission = await requestPermission()
-                    permissionGranted = permission === "granted"
-                    setGyroscopePermission(permissionGranted)
-                } catch (err) {
-                    console.error("Error requesting device orientation permission:", err)
-                    permissionGranted = false
-                    setGyroscopePermission(false)
-                }
-            }
-            if (!permissionGranted) {
-                console.warn("Device orientation permission denied, using standard controls")
-                return false
-            }
-            const handleOrientation = (event: DeviceOrientationEvent): void => {
-                if (event.alpha === null || event.beta === null || event.gamma === null) {
-                    return
-                }
-                const alpha = THREE.MathUtils.degToRad(event.alpha || 0)
-                const beta = THREE.MathUtils.degToRad(event.beta || 0)
-                const gamma = THREE.MathUtils.degToRad(event.gamma || 0)
-                const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ")
-                camera.quaternion.setFromEuler(euler)
-            }
-            window.addEventListener("deviceorientation", handleOrientation, true)
-            setGyroscopePermission(true)
-            cleanupRef.current = () => {
-                window.removeEventListener("deviceorientation", handleOrientation, true)
-            }
-            return true
-        } catch (error) {
-            console.error("Error in setupDeviceOrientation:", error)
-            setGyroscopePermission(false)
-            return false
-        }
-    }
-
-    interface CustomXRSession {
-        end: () => Promise<void>
-        addEventListener: (event: string, callback: () => void) => void
-    }
-
-    const initVRSession = async (): Promise<boolean> => {
-        if (!("xr" in navigator)) return false
-        try {
-            const navigator_xr = navigator as Navigator & {
-                xr: {
-                    requestSession(mode: string, options?: { optionalFeatures: string[] }): Promise<CustomXRSession>
-                }
-            }
-            const session = await navigator_xr.xr.requestSession("immersive-vr", {
-                optionalFeatures: ["local-floor", "bounded-floor", "hand-tracking"],
+    const setupDeviceOrientation = async () => {
+        const deviceOrientationEvent = "DeviceOrientationEvent" in window
+            ? (window.DeviceOrientationEvent as unknown as {
+                requestPermission?: () => Promise<"granted" | "denied">
             })
-            if (gl.xr) {
-                gl.xr.enabled = true
-                gl.setAnimationLoop(() => {
-                    gl.render(scene, camera)
-                })
-                await gl.xr.setSession(session as unknown as never)
-                console.log("VR session started successfully")
-                session.addEventListener("end", () => {
-                    console.log("VR session ended")
-                    gl.xr.enabled = false
-                    gl.setAnimationLoop(null)
-                    onExit()
-                })
-                cleanupRef.current = () => {
-                    try {
-                        session.end().catch(console.error)
-                    } catch (e) {
-                        console.error("Error ending XR session:", e)
+            : null
+
+        if (typeof window !== "undefined" && deviceOrientationEvent) {
+            if (deviceOrientationEvent.requestPermission) {
+                const permission = await deviceOrientationEvent.requestPermission()
+                if (permission === "granted") {
+                    const handleOrientation = (event: DeviceOrientationEvent) => {
+                        const alpha = THREE.MathUtils.degToRad(event.alpha || 0)
+                        const beta = THREE.MathUtils.degToRad(event.beta || 0)
+                        const gamma = THREE.MathUtils.degToRad(event.gamma || 0)
+                        const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ")
+                        camera.quaternion.setFromEuler(euler)
                     }
+                    window.addEventListener("deviceorientation", handleOrientation, true)
+                    cleanupRef.current = () =>
+                        window.removeEventListener("deviceorientation", handleOrientation, true)
+                    return true
                 }
+            } else {
+                const handleOrientation = (event: DeviceOrientationEvent) => {
+                    const alpha = THREE.MathUtils.degToRad(event.alpha || 0)
+                    const beta = THREE.MathUtils.degToRad(event.beta || 0)
+                    const gamma = THREE.MathUtils.degToRad(event.gamma || 0)
+                    const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ")
+                    camera.quaternion.setFromEuler(euler)
+                }
+                window.addEventListener("deviceorientation", handleOrientation, true)
+                cleanupRef.current = () =>
+                    window.removeEventListener("deviceorientation", handleOrientation, true)
                 return true
             }
-            return false
-        } catch (error) {
-            console.error("Failed to start VR session:", error)
-            return false
         }
+        return false
+    }
+
+    const initVRSession = async () => {
+        if ("xr" in navigator) {
+            const xr = navigator as Navigator & {
+                xr: {
+                    requestSession: (
+                        mode: string,
+                        options?: { optionalFeatures: string[] }
+                    ) => Promise<XRSession>
+                }
+            }
+            const session = await xr.xr.requestSession("immersive-vr", {
+                optionalFeatures: ["local-floor", "bounded-floor"],
+            })
+            gl.xr.enabled = true
+            gl.setAnimationLoop(() => gl.render(scene, camera))
+            await gl.xr.setSession(session)
+            session.addEventListener("end", () => {
+                gl.xr.enabled = false
+                gl.setAnimationLoop(null)
+                onExit()
+            })
+            cleanupRef.current = () => session.end()
+            return true
+        }
+        return false
     }
 
     useEffect(() => {
-        let hasInitialized = false
-        const initializeExperience = async (): Promise<void> => {
-            if (hasInitialized) return
-            hasInitialized = true
+        const initialize = async () => {
             if (deviceType === "vr" && isVRSupported) {
                 const vrStarted = await initVRSession()
-                if (!vrStarted) {
-                    console.warn("Failed to start VR session, falling back to desktop mode")
-                    initializeControls()
+                if (!vrStarted && controlsRef.current) {
+                    controlsRef.current.enabled = true
                 }
             } else if (deviceType === "mobile") {
                 const gyroEnabled = await setupDeviceOrientation()
-                if (!gyroEnabled) {
-                    initializeControls()
+                if (!gyroEnabled && controlsRef.current) {
+                    controlsRef.current.enabled = true
                 }
-            } else {
-                initializeControls()
-            }
-        }
-        const initializeControls = (): void => {
-            if (controlsRef.current) {
+            } else if (controlsRef.current) {
                 controlsRef.current.enabled = true
                 controlsRef.current.enableDamping = true
-                controlsRef.current.dampingFactor = deviceType === "mobile" ? 0.1 : 0.05
-                controlsRef.current.rotateSpeed = deviceType === "mobile" ? 0.8 : 1.0
-                controlsRef.current.enablePan = false
-                controlsRef.current.update()
+                controlsRef.current.dampingFactor = 0.05
+                controlsRef.current.rotateSpeed = 1.0
             }
         }
-        initializeExperience()
-        return () => {
-            if (cleanupRef.current) {
-                cleanupRef.current()
-                cleanupRef.current = null
-            }
-        }
+        initialize()
+        return () => cleanupRef.current?.()
     }, [deviceType, isVRSupported, onExit, camera, scene, gl])
-
-    // Create a separate DOM element for mobile UI
-    const MobileCardUI = () => {
-        if (deviceType !== "mobile") return null
-
-        return (
-            <div
-                style={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    zIndex: 1001,
-                    width: "100%",
-                    maxWidth: "90vw",
-                    pointerEvents: "auto",
-                }}
-            >
-                <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />
-            </div>
-        )
-    }
 
     return (
         <>
             <PerspectiveCamera makeDefault position={[0, 0, 0.1]} fov={90} />
             <ambientLight intensity={1} />
             <pointLight position={[0, 2, 2]} intensity={2} distance={10} />
-
-            {/* 360 Panorama Background */}
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
-                <meshBasicMaterial map={texture || null} color={texture ? undefined : "gray"} side={THREE.BackSide} />
+                <meshBasicMaterial map={texture} side={THREE.BackSide} />
             </Sphere>
-
-            {/* Card UI embedded in 3D space - Only for desktop and VR */}
-            {deviceType !== "mobile" && (
-                <group position={[0, 0, -8.5]}>
-                    <Html transform occlude center>
-                        <div style={{ width: "600px", transform: "scale(0.8)" }}>
-                            <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />
-                        </div>
-                    </Html>
-                </group>
-            )}
-
-            {/* Gaze pointer - Always visible for mobile */}
+            <group position={[0, 0, -8]}>
+                <Html transform occlude center>
+                    <div style={{ width: deviceType === "mobile" ? "90vw" : "600px", transform: "scale(0.8)" }}>
+                        <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />
+                    </div>
+                </Html>
+            </group>
             {(deviceType === "vr" || deviceType === "mobile") && (
                 <group position={[0, 0, -2]}>
-                    <GazePointer active={deviceType === "mobile" || !!gazeTarget} />
+                    <GazePointer active={!!gazeTarget} />
                 </group>
             )}
-
-            {(deviceType === "desktop" || (deviceType === "mobile" && gyroscopePermission === false)) && (
-                <OrbitControls
-                    ref={controlsRef}
-                    enableZoom={false}
-                    enablePan={false}
-                    enableRotate={true}
-                    target={[0, 0, -1]}
-                    autoRotate={false}
-                    enableDamping={true}
-                    dampingFactor={0.1}
-                    rotateSpeed={deviceType === "mobile" ? 0.8 : 1.0}
-                    minPolarAngle={Math.PI * 0.1}
-                    maxPolarAngle={Math.PI * 0.9}
-                />
-            )}
-
-            {/* Fallback HTML UI for mobile */}
-            <Html fullscreen>
-                <MobileCardUI />
-            </Html>
+            <OrbitControls
+                ref={controlsRef}
+                enableZoom={false}
+                enablePan={false}
+                enableRotate={true}
+                target={[0, 0, -1]}
+                autoRotate={false}
+                enableDamping={true}
+                dampingFactor={0.1}
+                rotateSpeed={deviceType === "mobile" ? 0.8 : 1.0}
+                minPolarAngle={Math.PI * 0.1}
+                maxPolarAngle={Math.PI * 0.9}
+            />
         </>
     )
 }
