@@ -573,7 +573,7 @@ function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveB
                 />
             </Sphere>
             {/* Card UI embedded in 3D space */}
-            <group position={[0, 0, -8]}>
+            <group position={[0, 0, -8.5]}>
                 <Html transform occlude center>
                     <div style={{ width: "600px", transform: "scale(0.8)" }}>
                         <CardUI
