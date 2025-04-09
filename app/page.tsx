@@ -224,6 +224,12 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setA
                     Tilt or swipe to look around
                 </div>
             )}
+            {/* Render CardUI as an overlay for mobile in VR mode */}
+            {deviceType === "mobile" && (
+                <div className={styles.mobileVrOverlay}>
+                    <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={useRef([])} />
+                </div>
+            )}
         </div>
     )
 }
@@ -457,13 +463,20 @@ function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveB
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
             </Sphere>
-            <group position={[0, 0, -8]}>
-                <Html transform occlude center>
-                    <div style={{ width: deviceType === "mobile" ? "90vw" : "600px", transform: "scale(0.8)" }}>
-                        <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />
-                    </div>
-                </Html>
-            </group>
+            {/* Render CardUI in 3D space only for desktop and VR */}
+            {deviceType !== "mobile" && (
+                <group position={[0, 0, -8]}>
+                    <Html transform occlude center>
+                        <div style={{ width: "600px", transform: "scale(0.8)" }}>
+                            <CardUI
+                                activeButton={activeButton}
+                                setActiveButton={setActiveButton}
+                                buttonRefs={buttonRefs}
+                            />
+                        </div>
+                    </Html>
+                </group>
+            )}
             {(deviceType === "vr" || deviceType === "mobile") && (
                 <group position={[0, 0, -2]}>
                     <GazePointer active={!!gazeTarget} />
