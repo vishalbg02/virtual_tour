@@ -81,12 +81,6 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     const [gazeTarget, setGazeTarget] = useState<number | null>(null)
     const gazeTimerRef = useRef<number>(0)
     const gazeThreshold = 4
-    const isMobile = deviceType === "mobile"
-
-    // Calculate container size based on device type
-    const containerWidth = isMobile ? 350 : 600
-    const containerScale = isMobile ? 0.7 : 0.8
-    const containerDistance = isMobile ? -6 : -8 // Bring content closer on mobile
 
     useEffect(() => {
         if (deviceType === "mobile" || deviceType === "vr") {
@@ -216,6 +210,13 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
         return () => cleanupRef.current?.()
     }, [deviceType, isVRSupported, onExit, camera, scene, gl])
 
+    useEffect(() => {
+        if (deviceType === "mobile") {
+            camera.position.set(0, 0, 2)
+            camera.updateProjectionMatrix()
+        }
+    }, [deviceType, camera])
+
     return (
         <>
             <PerspectiveCamera makeDefault position={[0, 0, 0.1]} fov={90} />
@@ -224,31 +225,22 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
             </Sphere>
-
-            {/* Content container - consistent across all device types */}
-            <group position={[0, 0, containerDistance]}>
+            <group position={[0, 0, -8]}>
                 <Html transform occlude center>
                     <div
-                        className="ar-content-container"
                         style={{
-                            width: `${containerWidth}px`,
-                            transform: `scale(${containerScale})`,
-                            backgroundColor: "rgba(255, 255, 255, 0.95)",
-                            borderRadius: "12px",
+                            width: deviceType === "mobile" ? "300px" : "600px",
+                            transform: deviceType === "mobile" ? "scale(1)" : "scale(0.8)",
+                            backgroundColor: "rgba(0, 0, 0, 0.7)",
                             padding: "20px",
-                            boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
-                            backdropFilter: "blur(10px)",
-                            WebkitBackdropFilter: "blur(10px)",
-                            border: "1px solid rgba(255, 255, 255, 0.3)",
-                            maxHeight: "80vh",
-                            overflowY: "auto",
+                            borderRadius: "10px",
+                            boxShadow: "0 0 10px rgba(0, 0, 0, 0.5)",
                         }}
                     >
                         {children}
                     </div>
                 </Html>
             </group>
-
             {(deviceType === "vr" || deviceType === "mobile") && (
                 <group position={[0, 0, -2]}>
                     <GazePointer active={gazeTarget !== null} />
@@ -259,7 +251,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 enableZoom={false}
                 enablePan={false}
                 enableRotate={true}
-                target={[0, 0, -1]}
+                target={deviceType === "mobile" ? [0, 0, -5] : [0, 0, -1]}
                 autoRotate={false}
                 enableDamping={true}
                 dampingFactor={0.1}
