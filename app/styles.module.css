@@ -536,12 +536,12 @@
         transform: translate(-50%, -50%);
         width: 90vw;
         max-width: 380px;
-        z-index: 2000; /* Extremely high z-index to ensure visibility */
+        z-index: 2000; /* Ensure it's high enough to be visible */
         pointer-events: auto;
         background: rgba(255, 255, 255, 0.95);
         border-radius: 20px;
         padding: 1.5rem;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-        border: 2px solid red; /* Debug: Red border to confirm rendering */
     }
+
 }
