@@ -186,9 +186,14 @@ interface VRSceneProps {
     buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>
 }
 
-function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setActiveButton }: VRSceneProps) {
-    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
-
+function EnhancedVRScene({
+                             onExit,
+                             isVRSupported,
+                             deviceType,
+                             activeButton,
+                             setActiveButton,
+                             buttonRefs,
+                         }: VRSceneProps) {
     return (
         <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
             <Canvas gl={{ antialias: true, alpha: false }}>
@@ -201,8 +206,6 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setA
                     buttonRefs={buttonRefs}
                 />
             </Canvas>
-
-            {/* Exit button */}
             <div
                 style={{
                     position: "absolute",
@@ -227,8 +230,6 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setA
                     <path d="M6 6l12 12" />
                 </svg>
             </div>
-
-            {/* Mobile tilt instruction */}
             {deviceType === "mobile" && (
                 <div
                     style={{
@@ -245,26 +246,6 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setA
                     }}
                 >
                     Tilt or swipe to look around
-                </div>
-            )}
-
-            {/* Direct inline styling for mobile menu overlay - no class dependency */}
-            {deviceType === "mobile" && (
-                <div style={{
-                    position: "fixed",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    width: "90%",
-                    maxWidth: "380px",
-                    zIndex: 1001,
-                    pointerEvents: "auto",
-                    background: "rgba(255, 255, 255, 0.95)",
-                    borderRadius: "20px",
-                    padding: "1.5rem",
-                    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.15)"
-                }}>
-                    <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />
                 </div>
             )}
         </div>
@@ -507,20 +488,18 @@ function VRContent({
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
             </Sphere>
-            {/* Render CardUI in 3D space only for desktop and VR */}
-            {deviceType !== "mobile" && (
-                <group position={[0, 0, -8]}>
-                    <Html transform occlude center>
-                        <div style={{ width: "600px", transform: "scale(0.8)" }}>
-                            <CardUI
-                                activeButton={activeButton}
-                                setActiveButton={setActiveButton}
-                                buttonRefs={buttonRefs}
-                            />
-                        </div>
-                    </Html>
-                </group>
-            )}
+            {/* Render CardUI in 3D space for both desktop and VR */}
+            <group position={[0, 0, -8]}>
+                <Html transform occlude center>
+                    <div style={{ width: "600px", transform: "scale(0.8)" }}>
+                        <CardUI
+                            activeButton={activeButton}
+                            setActiveButton={setActiveButton}
+                            buttonRefs={buttonRefs}
+                        />
+                    </div>
+                </Html>
+            </group>
             {(deviceType === "vr" || deviceType === "mobile") && (
                 <group position={[0, 0, -2]}>
                     <GazePointer active={!!gazeTarget} />
@@ -542,5 +521,6 @@ function VRContent({
         </>
     )
 }
+
 
 export default Home
