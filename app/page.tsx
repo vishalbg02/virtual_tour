@@ -180,13 +180,17 @@ interface VRContentProps {
 }
 
 function VRContent({ onExit, isVRSupported }: VRContentProps) {
+    // Load texture at the top level
     const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg");
-    const { gl, camera } = useThree();
-    const xrSessionRef = useRef<XRSession | null>(null);
+    const { gl, camera } = useThree(); // Removed unused 'scene'
     const controlsRef = useRef<OrbitControlsImpl | null>(null);
     const isMobile = useRef(false);
+    const xrSessionRef = useRef<XRSession | null>(null);
 
     useEffect(() => {
+        console.log("VRContent mounted, isVRSupported:", isVRSupported);
+        console.log("Texture available:", !!texture);
+
         // Detect if the device is mobile
         const userAgent = navigator.userAgent.toLowerCase();
         isMobile.current = /mobile|android|iphone|ipad|tablet/i.test(userAgent);
@@ -231,6 +235,33 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
                 }
             } else {
                 // Mobile: Request device orientation permission and set up controls
+                const handleOrientation = (event: DeviceOrientationEvent) => {
+                    console.log("Device orientation event:", {
+                        alpha: event.alpha,
+                        beta: event.beta,
+                        gamma: event.gamma,
+                    });
+
+                    if (event.alpha === null || event.beta === null || event.gamma === null) {
+                        console.warn("Invalid orientation data, skipping update");
+                        return;
+                    }
+
+                    // Convert degrees to radians
+                    const alpha = THREE.MathUtils.degToRad(event.alpha); // Z-axis rotation (yaw)
+                    const beta = THREE.MathUtils.degToRad(event.beta); // X-axis rotation (pitch)
+                    const gamma = THREE.MathUtils.degToRad(event.gamma); // Y-axis rotation (roll)
+
+                    // Create a quaternion for orientation
+                    const quaternion = new THREE.Quaternion();
+                    const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ"); // YXZ order
+                    quaternion.setFromEuler(euler);
+
+                    // Apply to camera
+                    camera.quaternion.copy(quaternion);
+                    console.log("Camera quaternion updated:", quaternion);
+                };
+
                 const setupDeviceOrientation = async () => {
                     try {
                         console.log("Setting up device orientation controls");
@@ -262,47 +293,20 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
                             return;
                         }
 
-                        // Handle device orientation
-                        const handleOrientation = (event: DeviceOrientationEvent) => {
-                            console.log("Device orientation event:", {
-                                alpha: event.alpha,
-                                beta: event.beta,
-                                gamma: event.gamma,
-                            });
-
-                            if (!event.alpha || !event.beta || !event.gamma) {
-                                console.warn("Invalid orientation data, skipping update");
-                                return;
-                            }
-
-                            // Convert degrees to radians
-                            const alpha = THREE.MathUtils.degToRad(event.alpha); // Z-axis rotation (yaw)
-                            const beta = THREE.MathUtils.degToRad(event.beta); // X-axis rotation (pitch)
-                            const gamma = THREE.MathUtils.degToRad(event.gamma); // Y-axis rotation (roll)
-
-                            // Create a quaternion for orientation
-                            const quaternion = new THREE.Quaternion();
-                            const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ"); // YXZ order for correct orientation
-                            quaternion.setFromEuler(euler);
-
-                            // Apply to camera
-                            camera.quaternion.copy(quaternion);
-                            console.log("Camera quaternion updated:", quaternion);
-                        };
-
                         window.addEventListener("deviceorientation", handleOrientation, true);
                         console.log("Device orientation listener added");
-
-                        // Cleanup
-                        return () => {
-                            window.removeEventListener("deviceorientation", handleOrientation, true);
-                            console.log("Device orientation listener removed");
-                        };
                     } catch (error) {
-                        console.error("Error setting up device orientation:", error);
+                        console.error("Error in setupDeviceOrientation:", error);
                     }
                 };
+
                 setupDeviceOrientation();
+
+                // Cleanup
+                return () => {
+                    window.removeEventListener("deviceorientation", handleOrientation, true);
+                    console.log("Device orientation listener removed");
+                };
             }
         }
 
@@ -315,7 +319,7 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
                 console.log("Cleanup: VR session ended");
             }
         };
-    }, [isVRSupported, gl, onExit, camera]);
+    }, [isVRSupported, gl, onExit, camera, texture]);
 
     return (
         <>
