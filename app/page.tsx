@@ -186,14 +186,9 @@ interface VRSceneProps {
     buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>
 }
 
-function EnhancedVRScene({
-                             onExit,
-                             isVRSupported,
-                             deviceType,
-                             activeButton,
-                             setActiveButton,
-                             buttonRefs,
-                         }: VRSceneProps) {
+function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setActiveButton }: VRSceneProps) {
+    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
+
     return (
         <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
             <Canvas gl={{ antialias: true, alpha: false }}>
@@ -206,6 +201,8 @@ function EnhancedVRScene({
                     buttonRefs={buttonRefs}
                 />
             </Canvas>
+
+            {/* Exit button */}
             <div
                 style={{
                     position: "absolute",
@@ -230,6 +227,8 @@ function EnhancedVRScene({
                     <path d="M6 6l12 12" />
                 </svg>
             </div>
+
+            {/* Mobile tilt instruction */}
             {deviceType === "mobile" && (
                 <div
                     style={{
@@ -246,6 +245,26 @@ function EnhancedVRScene({
                     }}
                 >
                     Tilt or swipe to look around
+                </div>
+            )}
+
+            {/* Direct inline styling for mobile menu overlay - no class dependency */}
+            {deviceType === "mobile" && (
+                <div style={{
+                    position: "fixed",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: "90%",
+                    maxWidth: "380px",
+                    zIndex: 1001,
+                    pointerEvents: "auto",
+                    background: "rgba(255, 255, 255, 0.95)",
+                    borderRadius: "20px",
+                    padding: "1.5rem",
+                    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.15)"
+                }}>
+                    <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />
                 </div>
             )}
         </div>
