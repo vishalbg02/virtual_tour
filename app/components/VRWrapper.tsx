@@ -75,6 +75,9 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     const gazeTimerRef = useRef<number>(0);
     const gazeThreshold = 4;
 
+    // Reference for the HTML container
+    const htmlContainerRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         if (deviceType === "mobile" || deviceType === "vr") {
             setGazeTarget(0);
@@ -202,6 +205,10 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
         return () => cleanupRef.current?.();
     }, [deviceType, isVRSupported, onExit, camera, scene, gl]);
 
+    // Adjust the positioning for better visibility on mobile
+    const contentDistance = deviceType === "mobile" ? -5 : -8;
+    const contentWidth = deviceType === "mobile" ? 350 : 600;
+
     return (
         <>
             <PerspectiveCamera makeDefault position={[0, 0, 0.1]} fov={90} />
@@ -210,9 +217,27 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
             </Sphere>
-            <group position={[0, 0, -8]}>
-                <Html transform occlude center>
-                    <div style={{ width: "600px", transform: "scale(0.8)" }}>{children}</div>
+            <group position={[0, 0, contentDistance]}>
+                <Html
+                    transform
+                    occlude
+                    center
+                    distanceFactor={1}
+                    prepend
+                    zIndexRange={[100, 0]}
+                >
+                    <div
+                        ref={htmlContainerRef}
+                        style={{
+                            width: `${contentWidth}px`,
+                            backgroundColor: "rgba(0, 0, 0, 0.7)",
+                            padding: "20px",
+                            borderRadius: "10px",
+                            boxShadow: "0 0 20px rgba(0, 0, 0, 0.5)"
+                        }}
+                    >
+                        {children}
+                    </div>
                 </Html>
             </group>
             {(deviceType === "vr" || deviceType === "mobile") && (
@@ -238,55 +263,70 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
 }
 
 export default function VRWrapper({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
+    // Add overlay style for mobile to enhance menu visibility
+    const mobileOverlayStyle = deviceType === "mobile" ? {
+        position: "fixed" as const,
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        backgroundColor: "rgba(0, 0, 0, 0.3)",
+        zIndex: 9,
+        pointerEvents: "none" as const
+    } : {};
+
     return (
-        <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
-            <Canvas gl={{ antialias: true, alpha: false }}>
-                <VRContent onExit={onExit} isVRSupported={isVRSupported} deviceType={deviceType} buttonRefs={buttonRefs}>
-                    {children}
-                </VRContent>
-            </Canvas>
-            <div
-                style={{
-                    position: "absolute",
-                    top: "20px",
-                    right: "20px",
-                    width: "40px",
-                    height: "40px",
-                    background: "#fff",
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
-                    zIndex: 1001,
-                }}
-                onClick={onExit}
-                title="Exit VR Preview"
-            >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2">
-                    <path d="M18 6L6 18" />
-                    <path d="M6 6l12 12" />
-                </svg>
-            </div>
-            {deviceType === "mobile" && (
+        <>
+            {deviceType === "mobile" && <div style={mobileOverlayStyle}></div>}
+            <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
+                <Canvas gl={{ antialias: true, alpha: false }}>
+                    <VRContent onExit={onExit} isVRSupported={isVRSupported} deviceType={deviceType} buttonRefs={buttonRefs}>
+                        {children}
+                    </VRContent>
+                </Canvas>
                 <div
                     style={{
                         position: "absolute",
-                        bottom: "20px",
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        padding: "10px 20px",
-                        background: "rgba(0, 0, 0, 0.7)",
-                        color: "white",
-                        borderRadius: "20px",
-                        fontFamily: "sans-serif",
+                        top: "20px",
+                        right: "20px",
+                        width: "40px",
+                        height: "40px",
+                        background: "#fff",
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
                         zIndex: 1001,
                     }}
+                    onClick={onExit}
+                    title="Exit VR Preview"
                 >
-                    Tilt or swipe to look around
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2">
+                        <path d="M18 6L6 18" />
+                        <path d="M6 6l12 12" />
+                    </svg>
                 </div>
-            )}
-        </div>
+                {deviceType === "mobile" && (
+                    <div
+                        style={{
+                            position: "absolute",
+                            bottom: "20px",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            padding: "10px 20px",
+                            background: "rgba(0, 0, 0, 0.7)",
+                            color: "white",
+                            borderRadius: "20px",
+                            fontFamily: "sans-serif",
+                            zIndex: 1001,
+                        }}
+                    >
+                        Tilt or swipe to look around • Focus on buttons to select
+                    </div>
+                )}
+            </div>
+        </>
     );
 }
