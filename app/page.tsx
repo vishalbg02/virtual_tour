@@ -9,6 +9,13 @@ import { PerspectiveCamera, OrbitControls, Sphere, Text } from "@react-three/dre
 import * as THREE from "three";
 import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
+// Define the constructor type with requestPermission
+interface DeviceOrientationEventConstructor {
+    new (type: string, eventInitDict?: DeviceOrientationEventInit): DeviceOrientationEvent;
+    prototype: DeviceOrientationEvent;
+    requestPermission?: () => Promise<"granted" | "denied">;
+}
+
 interface Button {
     text: string;
     href: string;
@@ -174,13 +181,18 @@ interface VRContentProps {
 
 function VRContent({ onExit, isVRSupported }: VRContentProps) {
     const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg");
-    const { gl } = useThree();
+    const { gl, camera } = useThree();
     const xrSessionRef = useRef<XRSession | null>(null);
     const controlsRef = useRef<OrbitControlsImpl | null>(null);
+    const isMobile = useRef(false);
 
     useEffect(() => {
-        console.log("VRContent useEffect triggered, isVRSupported:", isVRSupported);
+        // Detect if the device is mobile
+        const userAgent = navigator.userAgent.toLowerCase();
+        isMobile.current = /mobile|android|iphone|ipad|tablet/i.test(userAgent);
+        console.log("Is mobile device:", isMobile.current);
 
+        // Handle VR session if supported
         if (isVRSupported && typeof navigator !== "undefined" && navigator.xr) {
             const startXRSession = async () => {
                 try {
@@ -206,17 +218,68 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
             };
             startXRSession();
         } else {
-            console.log("Initializing 2D mode with OrbitControls");
-            if (controlsRef.current) {
-                controlsRef.current.enabled = true;
-                controlsRef.current.enableDamping = true;
-                controlsRef.current.dampingFactor = 0.05;
-                controlsRef.current.rotateSpeed = 1.0;
-                controlsRef.current.update();
-                console.log("OrbitControls initialized and enabled for 2D mode");
+            console.log("Initializing non-VR mode");
+            if (!isMobile.current) {
+                // Desktop/laptop: Use OrbitControls
+                if (controlsRef.current) {
+                    controlsRef.current.enabled = true;
+                    controlsRef.current.enableDamping = true;
+                    controlsRef.current.dampingFactor = 0.05;
+                    controlsRef.current.rotateSpeed = 1.0;
+                    controlsRef.current.update();
+                    console.log("OrbitControls initialized for desktop");
+                }
+            } else {
+                // Mobile: Request device orientation permission and set up controls
+                const setupDeviceOrientation = async () => {
+                    try {
+                        // Request permission for iOS 13+ devices
+                        if (
+                            typeof DeviceOrientationEvent !== "undefined" &&
+                            typeof (DeviceOrientationEvent as DeviceOrientationEventConstructor).requestPermission === "function"
+                        ) {
+                            const permission = await (DeviceOrientationEvent as DeviceOrientationEventConstructor).requestPermission!();
+                            if (permission !== "granted") {
+                                console.warn("Device orientation permission denied");
+                                return;
+                            }
+                        }
+
+                        // Handle device orientation
+                        const handleOrientation = (event: DeviceOrientationEvent) => {
+                            if (!event.alpha || !event.beta || !event.gamma) return;
+
+                            // Convert degrees to radians
+                            const alpha = THREE.MathUtils.degToRad(event.alpha); // Z-axis rotation (yaw)
+                            const beta = THREE.MathUtils.degToRad(event.beta); // X-axis rotation (pitch)
+                            const gamma = THREE.MathUtils.degToRad(event.gamma); // Y-axis rotation (roll)
+
+                            // Create a quaternion for orientation
+                            const quaternion = new THREE.Quaternion();
+                            const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ"); // YXZ order for correct orientation
+                            quaternion.setFromEuler(euler);
+
+                            // Apply to camera
+                            camera.quaternion.copy(quaternion);
+                        };
+
+                        window.addEventListener("deviceorientation", handleOrientation, true);
+                        console.log("Device orientation controls enabled");
+
+                        // Cleanup
+                        return () => {
+                            window.removeEventListener("deviceorientation", handleOrientation, true);
+                            console.log("Device orientation controls removed");
+                        };
+                    } catch (error) {
+                        console.error("Error setting up device orientation:", error);
+                    }
+                };
+                setupDeviceOrientation();
             }
         }
 
+        // Cleanup XR session on unmount
         return () => {
             if (xrSessionRef.current) {
                 xrSessionRef.current.end().catch((err) => {
@@ -225,7 +288,7 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
                 console.log("Cleanup: VR session ended");
             }
         };
-    }, [isVRSupported, gl, onExit]);
+    }, [isVRSupported, gl, onExit, camera]);
 
     return (
         <>
@@ -252,9 +315,9 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
                 anchorY="middle"
                 font="/fonts/LeagueSpartan-Bold.ttf"
             >
-                {isVRSupported ? "Use controllers or gaze" : "Use mouse or touch"} to explore
+                {isVRSupported ? "Use controllers or gaze" : isMobile.current ? "Tilt your device to explore" : "Use mouse or touch to explore"}
             </Text>
-            {!isVRSupported && (
+            {!isVRSupported && !isMobile.current && (
                 <OrbitControls
                     ref={controlsRef}
                     enableZoom={false}
