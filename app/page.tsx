@@ -71,6 +71,8 @@ function CardUI({
                             className={`${styles.navButton} ${activeButton === button.text ? styles.active : ""}`}
                             onMouseEnter={() => handleButtonHover(button.text)}
                             onMouseLeave={handleButtonLeave}
+                            onTouchStart={() => handleButtonHover(button.text)}
+                            onTouchEnd={handleButtonLeave}
                         >
                             {button.text}
                         </button>
@@ -120,7 +122,7 @@ function Home() {
             <div className={styles.blurBackground}></div>
             {!vrSession && (
                 <>
-                    <CardUI activeButton={activeButton} setActiveButton={setActiveButton} />
+                    <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />
                     <div
                         style={{
                             position: "absolute",
@@ -334,13 +336,15 @@ function VRContent({
     const gazeThreshold = 2
 
     useEffect(() => {
+        // Initialize buttonRefs to ensure all buttons are tracked
+        buttonRefs.current = Array(4).fill(null)
         if (deviceType === "mobile" || deviceType === "vr") {
-            setGazeTarget(0) // Ensure gaze pointer is active in mobile/vr
+            setGazeTarget(0) // Activate gaze pointer for mobile/vr
         }
     }, [deviceType])
 
     useFrame((state, delta) => {
-        if (deviceType === "vr" || deviceType === "mobile") {
+        if ((deviceType === "vr" || deviceType === "mobile") && gazeTarget !== null) {
             const raycaster = new THREE.Raycaster()
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera)
             const intersects = buttonRefs.current
@@ -350,7 +354,7 @@ function VRContent({
                     const vector = new THREE.Vector3(
                         ((rect.left + rect.width / 2) / window.innerWidth) * 2 - 1,
                         -((rect.top + rect.height / 2) / window.innerHeight) * 2 + 1,
-                        -8,
+                        0.5,
                     )
                     vector.unproject(camera)
                     const dir = vector.sub(camera.position).normalize()
@@ -375,6 +379,9 @@ function VRContent({
                     setGazeTarget(closest.index)
                     gazeTimerRef.current = 0
                 }
+            } else {
+                setGazeTarget(null)
+                gazeTimerRef.current = 0
             }
         }
     })
@@ -388,19 +395,23 @@ function VRContent({
 
         if (typeof window !== "undefined" && deviceOrientationEvent) {
             if (deviceOrientationEvent.requestPermission) {
-                const permission = await deviceOrientationEvent.requestPermission()
-                if (permission === "granted") {
-                    const handleOrientation = (event: DeviceOrientationEvent) => {
-                        const alpha = THREE.MathUtils.degToRad(event.alpha || 0)
-                        const beta = THREE.MathUtils.degToRad(event.beta || 0)
-                        const gamma = THREE.MathUtils.degToRad(event.gamma || 0)
-                        const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ")
-                        camera.quaternion.setFromEuler(euler)
+                try {
+                    const permission = await deviceOrientationEvent.requestPermission()
+                    if (permission === "granted") {
+                        const handleOrientation = (event: DeviceOrientationEvent) => {
+                            const alpha = THREE.MathUtils.degToRad(event.alpha || 0)
+                            const beta = THREE.MathUtils.degToRad(event.beta || 0)
+                            const gamma = THREE.MathUtils.degToRad(event.gamma || 0)
+                            const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ")
+                            camera.quaternion.setFromEuler(euler)
+                        }
+                        window.addEventListener("deviceorientation", handleOrientation, true)
+                        cleanupRef.current = () =>
+                            window.removeEventListener("deviceorientation", handleOrientation, true)
+                        return true
                     }
-                    window.addEventListener("deviceorientation", handleOrientation, true)
-                    cleanupRef.current = () =>
-                        window.removeEventListener("deviceorientation", handleOrientation, true)
-                    return true
+                } catch (error) {
+                    console.warn("Device orientation permission denied", error)
                 }
             } else {
                 const handleOrientation = (event: DeviceOrientationEvent) => {
@@ -429,19 +440,24 @@ function VRContent({
                     ) => Promise<XRSession>
                 }
             }
-            const session = await xr.xr.requestSession("immersive-vr", {
-                optionalFeatures: ["local-floor", "bounded-floor"],
-            })
-            gl.xr.enabled = true
-            gl.setAnimationLoop(() => gl.render(scene, camera))
-            await gl.xr.setSession(session)
-            session.addEventListener("end", () => {
-                gl.xr.enabled = false
-                gl.setAnimationLoop(null)
-                onExit()
-            })
-            cleanupRef.current = () => session.end()
-            return true
+            try {
+                const session = await xr.xr.requestSession("immersive-vr", {
+                    optionalFeatures: ["local-floor", "bounded-floor"],
+                })
+                gl.xr.enabled = true
+                gl.setAnimationLoop(() => gl.render(scene, camera))
+                await gl.xr.setSession(session)
+                session.addEventListener("end", () => {
+                    gl.xr.enabled = false
+                    gl.setAnimationLoop(null)
+                    onExit()
+                })
+                cleanupRef.current = () => session.end()
+                return true
+            } catch (error) {
+                console.warn("Failed to start VR session", error)
+                return false
+            }
         }
         return false
     }
@@ -477,17 +493,22 @@ function VRContent({
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
             </Sphere>
-            <group position={[0, 0, -8]}>
-                <Html transform occlude center>
-                    <div style={{ width: "600px", transform: "scale(0.8)" }}>
-                        <CardUI
-                            activeButton={activeButton}
-                            setActiveButton={setActiveButton}
-                            buttonRefs={buttonRefs}
-                        />
-                    </div>
-                </Html>
-            </group>
+            <Html center>
+                <div
+                    style={{
+                        width: deviceType === "mobile" ? "90vw" : "600px",
+                        maxWidth: "380px",
+                        pointerEvents: "auto",
+                        zIndex: 1000,
+                    }}
+                >
+                    <CardUI
+                        activeButton={activeButton}
+                        setActiveButton={setActiveButton}
+                        buttonRefs={buttonRefs}
+                    />
+                </div>
+            </Html>
             {(deviceType === "vr" || deviceType === "mobile") && (
                 <group position={[0, 0, -2]}>
                     <GazePointer active={!!gazeTarget} />
