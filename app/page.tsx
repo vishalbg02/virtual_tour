@@ -90,6 +90,7 @@ function Home() {
     const [vrSession, setVrSession] = useState<boolean>(false)
     const [isVRSupported, setIsVRSupported] = useState<boolean>(false)
     const [deviceType, setDeviceType] = useState<DeviceType>("desktop")
+    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
 
     useEffect(() => {
         const userAgent = navigator.userAgent.toLowerCase()
@@ -117,7 +118,8 @@ function Home() {
     return (
         <main className={`${styles.root} ${styles.main}`}>
             <div className={styles.blurBackground}></div>
-            <CardUI activeButton={activeButton} setActiveButton={setActiveButton} />
+            {/* Render CardUI normally when not in VR */}
+            {!vrSession && <CardUI activeButton={activeButton} setActiveButton={setActiveButton} />}
             {!vrSession && (
                 <div
                     style={{
@@ -147,13 +149,26 @@ function Home() {
                 </div>
             )}
             {vrSession && (
-                <EnhancedVRScene
-                    onExit={() => setVrSession(false)}
-                    isVRSupported={isVRSupported}
-                    deviceType={deviceType}
-                    activeButton={activeButton}
-                    setActiveButton={setActiveButton}
-                />
+                <>
+                    <EnhancedVRScene
+                        onExit={() => setVrSession(false)}
+                        isVRSupported={isVRSupported}
+                        deviceType={deviceType}
+                        activeButton={activeButton}
+                        setActiveButton={setActiveButton}
+                        buttonRefs={buttonRefs}
+                    />
+                    {/* Render CardUI as overlay in mobile VR */}
+                    {deviceType === "mobile" && (
+                        <div className={styles.mobileVrOverlay}>
+                            <CardUI
+                                activeButton={activeButton}
+                                setActiveButton={setActiveButton}
+                                buttonRefs={buttonRefs}
+                            />
+                        </div>
+                    )}
+                </>
             )}
             <div className={styles.blackmedLogo}>
                 <Image src="/images/campus-bg.jpg" alt="BlackMed Logo" width={40} height={40} />
@@ -168,11 +183,17 @@ interface VRSceneProps {
     deviceType: DeviceType
     activeButton: string | null
     setActiveButton: (button: string | null) => void
+    buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>
 }
 
-function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setActiveButton }: VRSceneProps) {
-    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
-
+function EnhancedVRScene({
+                             onExit,
+                             isVRSupported,
+                             deviceType,
+                             activeButton,
+                             setActiveButton,
+                             buttonRefs,
+                         }: VRSceneProps) {
     return (
         <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
             <Canvas gl={{ antialias: true, alpha: false }}>
@@ -227,12 +248,6 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setA
                     Tilt or swipe to look around
                 </div>
             )}
-            {/* Always render CardUI as an overlay in mobile VR with improved styling */}
-            {deviceType === "mobile" && (
-                <div className={styles.mobileVrOverlay}>
-                    <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />
-                </div>
-            )}
         </div>
     )
 }
@@ -243,7 +258,7 @@ interface VRContentProps {
     deviceType: DeviceType
     activeButton: string | null
     setActiveButton: (button: string | null) => void
-    buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]> // Add buttonRefs to props
+    buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>
 }
 
 function GazePointer({ active }: { active: boolean }) {
