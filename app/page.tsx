@@ -375,7 +375,7 @@ function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveB
         console.error("Texture loading error:", err);
     });
 
-    const { gl, camera, scene } = useThree(); // Restored 'gl' for renderer access
+    const { gl, camera, scene, viewport } = useThree(); // Added viewport
     const controlsRef = useRef<OrbitControlsImpl | null>(null);
     const [gyroscopePermission, setGyroscopePermission] = useState<boolean | null>(null);
     const cleanupRef = useRef<(() => void) | null>(null);
@@ -396,7 +396,7 @@ function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveB
                     const vector = new THREE.Vector3(
                         ((rect.left + rect.width / 2) / window.innerWidth) * 2 - 1,
                         -((rect.top + rect.height / 2) / window.innerHeight) * 2 + 1,
-                        -8 // Match the Html group's z-position (updated from -5 to -8)
+                        deviceType === "mobile" ? -5 : -8.5 // Match CardUI z-position
                     );
                     vector.unproject(camera);
                     const dir = vector.sub(camera.position).normalize();
@@ -559,6 +559,10 @@ function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveB
         };
     }, [deviceType, isVRSupported, onExit, camera, scene, gl]);
 
+    // Calculate dynamic scale based on viewport
+    const cardScale = Math.min(viewport.width / 10, 1); // Scale relative to viewport width
+    const cardWidth = Math.min(viewport.width * 50, 500); // Responsive width in pixels
+
     return (
         <>
             <PerspectiveCamera makeDefault position={[0, 0, 0.1]} fov={90} />
@@ -573,9 +577,9 @@ function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveB
                 />
             </Sphere>
             {/* Card UI embedded in 3D space */}
-            <group position={[0, 0, -8.5]}>
+            <group position={[0, 0, deviceType === "mobile" ? -5 : -8.5]}>
                 <Html transform occlude center>
-                    <div style={{ width: "600px", transform: "scale(0.8)" }}>
+                    <div style={{ width: `${cardWidth}px`, transform: `scale(${cardScale})` }}>
                         <CardUI
                             activeButton={activeButton}
                             setActiveButton={setActiveButton}
