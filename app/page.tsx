@@ -233,21 +233,47 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
                 // Mobile: Request device orientation permission and set up controls
                 const setupDeviceOrientation = async () => {
                     try {
+                        console.log("Setting up device orientation controls");
+
                         // Request permission for iOS 13+ devices
+                        let permissionGranted = true;
                         if (
                             typeof DeviceOrientationEvent !== "undefined" &&
                             typeof (DeviceOrientationEvent as DeviceOrientationEventConstructor).requestPermission === "function"
                         ) {
-                            const permission = await (DeviceOrientationEvent as DeviceOrientationEventConstructor).requestPermission!();
-                            if (permission !== "granted") {
-                                console.warn("Device orientation permission denied");
-                                return;
+                            console.log("Requesting motion/orientation permission");
+                            try {
+                                const permission = await (DeviceOrientationEvent as DeviceOrientationEventConstructor).requestPermission!();
+                                console.log("Permission result:", permission);
+                                if (permission !== "granted") {
+                                    console.warn("Device orientation permission denied");
+                                    permissionGranted = false;
+                                }
+                            } catch (permError) {
+                                console.error("Error requesting permission:", permError);
+                                permissionGranted = false;
                             }
+                        } else {
+                            console.log("No permission required (non-iOS or no requestPermission)");
+                        }
+
+                        if (!permissionGranted) {
+                            console.warn("Cannot set up orientation controls due to lack of permission");
+                            return;
                         }
 
                         // Handle device orientation
                         const handleOrientation = (event: DeviceOrientationEvent) => {
-                            if (!event.alpha || !event.beta || !event.gamma) return;
+                            console.log("Device orientation event:", {
+                                alpha: event.alpha,
+                                beta: event.beta,
+                                gamma: event.gamma,
+                            });
+
+                            if (!event.alpha || !event.beta || !event.gamma) {
+                                console.warn("Invalid orientation data, skipping update");
+                                return;
+                            }
 
                             // Convert degrees to radians
                             const alpha = THREE.MathUtils.degToRad(event.alpha); // Z-axis rotation (yaw)
@@ -261,15 +287,16 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
 
                             // Apply to camera
                             camera.quaternion.copy(quaternion);
+                            console.log("Camera quaternion updated:", quaternion);
                         };
 
                         window.addEventListener("deviceorientation", handleOrientation, true);
-                        console.log("Device orientation controls enabled");
+                        console.log("Device orientation listener added");
 
                         // Cleanup
                         return () => {
                             window.removeEventListener("deviceorientation", handleOrientation, true);
-                            console.log("Device orientation controls removed");
+                            console.log("Device orientation listener removed");
                         };
                     } catch (error) {
                         console.error("Error setting up device orientation:", error);
