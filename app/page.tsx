@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import styles from "./styles.module.css";
 import Link from "next/link";
 import { Canvas, useThree, useLoader, useFrame } from "@react-three/fiber";
-import { PerspectiveCamera, OrbitControls, Sphere, Text, Html } from "@react-three/drei";
+import { PerspectiveCamera, OrbitControls, Sphere, Html } from "@react-three/drei";
 import * as THREE from "three";
 import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
@@ -23,47 +23,18 @@ interface Button {
 
 type DeviceType = "desktop" | "mobile" | "vr";
 
-function Home() {
-    const [activeButton, setActiveButton] = useState<string | null>(null);
-    const [vrSession, setVrSession] = useState<boolean>(false);
-    const [isVRSupported, setIsVRSupported] = useState<boolean>(false);
-    const [deviceType, setDeviceType] = useState<DeviceType>("desktop");
-
+// Reusable CardUI component
+function CardUI({
+                    activeButton,
+                    setActiveButton,
+                    buttonRefs,
+                }: {
+    activeButton: string | null;
+    setActiveButton: (button: string | null) => void;
+    buttonRefs?: React.MutableRefObject<(HTMLButtonElement | null)[]>;
+}) {
     const handleButtonHover = (button: string) => setActiveButton(button);
     const handleButtonLeave = () => setActiveButton(null);
-
-    // Check device type on mount
-    useEffect(() => {
-        const userAgent = navigator.userAgent.toLowerCase();
-        const isMobile = /mobile|android|iphone|ipad|tablet/i.test(userAgent);
-        setDeviceType(isMobile ? "mobile" : "desktop");
-    }, []);
-
-    const startVRSession = async () => {
-        console.log("VR button clicked");
-
-        if ("xr" in navigator) {
-            try {
-                const isSupported = await (navigator as Navigator & {
-                    xr: { isSessionSupported(mode: string): Promise<boolean> };
-                }).xr.isSessionSupported("immersive-vr");
-
-                console.log("VR supported:", isSupported);
-                setIsVRSupported(isSupported);
-                if (isSupported) {
-                    setDeviceType("vr");
-                }
-                setVrSession(true);
-            } catch (error) {
-                console.error("Error checking VR support:", error);
-                setVrSession(true); // Fallback to non-VR mode
-            }
-        } else {
-            console.warn("WebXR not supported, falling back to standard mode.");
-            setIsVRSupported(false);
-            setVrSession(true); // Fallback to standard viewing mode
-        }
-    };
 
     const buttons: Button[] = [
         { text: "Enter SeekBeak VR Tour", href: "https://app.seekbeak.com/v/YbjNDVVm1A7", external: true },
@@ -73,51 +44,89 @@ function Home() {
     ];
 
     return (
+        <div className={styles.card}>
+            <div className={styles.logoContainer}>
+                <Image
+                    src="/images/christ-logo.png"
+                    alt="Christ University Logo"
+                    width={150}
+                    height={150}
+                    className={styles.logo}
+                />
+            </div>
+            <h1 className={styles.title}>Christ University (Central Campus)</h1>
+            <h2 className={styles.subtitle}>VR Experience</h2>
+            <div className={styles.buttonContainer}>
+                {buttons.map((button, index) => (
+                    <Link
+                        href={button.href}
+                        key={index}
+                        target={button.external ? "_blank" : undefined}
+                        rel={button.external ? "noopener noreferrer" : undefined}
+                    >
+                        <button
+                            ref={
+                                buttonRefs
+                                    ? (el: HTMLButtonElement | null) => void (buttonRefs.current[index] = el)
+                                    : undefined
+                            }
+                            className={`${styles.navButton} ${activeButton === button.text ? styles.active : ""}`}
+                            onMouseEnter={() => handleButtonHover(button.text)}
+                            onMouseLeave={handleButtonLeave}
+                        >
+                            {button.text}
+                        </button>
+                    </Link>
+                ))}
+            </div>
+            <div className={styles.creditSection}>
+                <p className={styles.creditText}>Guided by Dr. Suresh K</p>
+                <p className={styles.creditText}>Directed by Dr. Ashok Immanuel V</p>
+            </div>
+        </div>
+    );
+}
+
+function Home() {
+    const [activeButton, setActiveButton] = useState<string | null>(null);
+    const [vrSession, setVrSession] = useState<boolean>(false);
+    const [isVRSupported, setIsVRSupported] = useState<boolean>(false);
+    const [deviceType, setDeviceType] = useState<DeviceType>("desktop");
+
+    useEffect(() => {
+        const userAgent = navigator.userAgent.toLowerCase();
+        const isMobile = /mobile|android|iphone|ipad|tablet/i.test(userAgent);
+        setDeviceType(isMobile ? "mobile" : "desktop");
+    }, []);
+
+    const startVRSession = async () => {
+        console.log("VR button clicked");
+        if ("xr" in navigator) {
+            try {
+                const isSupported = await (navigator as Navigator & {
+                    xr: { isSessionSupported(mode: string): Promise<boolean> };
+                }).xr.isSessionSupported("immersive-vr");
+                console.log("VR supported:", isSupported);
+                setIsVRSupported(isSupported);
+                if (isSupported) {
+                    setDeviceType("vr");
+                }
+                setVrSession(true);
+            } catch (error) {
+                console.error("Error checking VR support:", error);
+                setVrSession(true);
+            }
+        } else {
+            console.warn("WebXR not supported, falling back to standard mode.");
+            setIsVRSupported(false);
+            setVrSession(true);
+        }
+    };
+
+    return (
         <main className={`${styles.root} ${styles.main}`}>
             <div className={styles.blurBackground}></div>
-            <div className={styles.card}>
-                <div className={styles.logoContainer}>
-                    <Image
-                        src="/images/christ-logo.png"
-                        alt="Christ University Logo"
-                        width={150}
-                        height={150}
-                        className={styles.logo}
-                    />
-                </div>
-                <h1 className={styles.title}>Christ University (Central Campus)</h1>
-                <h2 className={styles.subtitle}>VR Experience</h2>
-                <div className={styles.buttonContainer}>
-                    {buttons.map((button, index) =>
-                        button.external ? (
-                            <Link href={button.href} key={index} target="_blank" rel="noopener noreferrer">
-                                <button
-                                    className={`${styles.navButton} ${activeButton === button.text ? styles.active : ""}`}
-                                    onMouseEnter={() => handleButtonHover(button.text)}
-                                    onMouseLeave={handleButtonLeave}
-                                >
-                                    {button.text}
-                                </button>
-                            </Link>
-                        ) : (
-                            <Link href={button.href} key={index}>
-                                <button
-                                    className={`${styles.navButton} ${activeButton === button.text ? styles.active : ""}`}
-                                    onMouseEnter={() => handleButtonHover(button.text)}
-                                    onMouseLeave={handleButtonLeave}
-                                    onClick={button.onClick}
-                                >
-                                    {button.text}
-                                </button>
-                            </Link>
-                        )
-                    )}
-                </div>
-                <div className={styles.creditSection}>
-                    <p className={styles.creditText}>Guided by Dr. Suresh K</p>
-                    <p className={styles.creditText}>Directed by Dr. Ashok Immanuel V</p>
-                </div>
-            </div>
+            <CardUI activeButton={activeButton} setActiveButton={setActiveButton} />
             {!vrSession && (
                 <div
                     style={{
@@ -151,6 +160,8 @@ function Home() {
                     onExit={() => setVrSession(false)}
                     isVRSupported={isVRSupported}
                     deviceType={deviceType}
+                    activeButton={activeButton}
+                    setActiveButton={setActiveButton}
                 />
             )}
             <div className={styles.blackmedLogo}>
@@ -164,9 +175,11 @@ interface VRSceneProps {
     onExit: () => void;
     isVRSupported: boolean;
     deviceType: DeviceType;
+    activeButton: string | null;
+    setActiveButton: (button: string | null) => void;
 }
 
-function EnhancedVRScene({ onExit, isVRSupported, deviceType }: VRSceneProps) {
+function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setActiveButton }: VRSceneProps) {
     return (
         <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
             <Canvas
@@ -175,7 +188,13 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType }: VRSceneProps) {
                     gl.setClearColor(new THREE.Color(0x000000));
                 }}
             >
-                <VRContent onExit={onExit} isVRSupported={isVRSupported} deviceType={deviceType} />
+                <VRContent
+                    onExit={onExit}
+                    isVRSupported={isVRSupported}
+                    deviceType={deviceType}
+                    activeButton={activeButton}
+                    setActiveButton={setActiveButton}
+                />
             </Canvas>
             <div
                 style={{
@@ -201,7 +220,6 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType }: VRSceneProps) {
                     <path d="M6 6l12 12" />
                 </svg>
             </div>
-
             {deviceType === "mobile" && (
                 <div
                     style={{
@@ -210,7 +228,7 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType }: VRSceneProps) {
                         left: "50%",
                         transform: "translateX(-50%)",
                         padding: "10px 20px",
-                        background: "rgba(0, 0, 0, 0.5)",
+                        background: "rgba(0, 0, 0, 0.7)",
                         color: "white",
                         borderRadius: "20px",
                         fontFamily: "sans-serif",
@@ -224,127 +242,195 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType }: VRSceneProps) {
     );
 }
 
-// Interface for raycaster intersection with VR button
-interface VRButtonIntersection {
-    buttonIndex: number;
-    time: number;
-    hovered: boolean;
-}
-
 interface VRContentProps {
     onExit: () => void;
     isVRSupported: boolean;
     deviceType: DeviceType;
+    activeButton: string | null;
+    setActiveButton: (button: string | null) => void;
 }
 
-function GazePointer() {
+function GazePointer({ active }: { active: boolean }) {
     const [progress, setProgress] = useState<number>(0);
 
     useFrame(() => {
-        if (progress < 1) {
-            setProgress((prev) => Math.min(prev + 0.008, 1)); // Adjust for speed of fill
-        } else if (progress > 0) {
-            setProgress((prev) => Math.max(prev - 0.05, 0)); // Adjust for speed of reset
+        if (active && progress < 1) {
+            setProgress((prev) => Math.min(prev + 0.01, 1));
+        } else if (!active && progress > 0) {
+            setProgress((prev) => Math.max(prev - 0.05, 0));
         }
     });
 
     return (
         <Html center>
-            <div style={{
-                position: 'relative',
-                width: '40px',
-                height: '40px',
-                pointerEvents: 'none'
-            }}>
-                {/* Outer ring */}
-                <div style={{
-                    position: 'absolute',
-                    width: '100%',
-                    height: '100%',
-                    borderRadius: '50%',
-                    border: '2px solid white',
-                    opacity: 0.8
-                }}></div>
-
-                {/* Progress indicator */}
-                <svg
-                    width="40"
-                    height="40"
-                    viewBox="0 0 40 40"
+            <div
+                style={{
+                    position: "relative",
+                    width: "50px",
+                    height: "50px",
+                    pointerEvents: "none",
+                }}
+            >
+                <div
                     style={{
-                        position: 'absolute',
-                        transform: 'rotate(-90deg)'
+                        position: "absolute",
+                        width: "100%",
+                        height: "100%",
+                        borderRadius: "50%",
+                        border: "2px solid rgba(255, 255, 255, 0.8)",
+                        boxShadow: active ? "0 0 15px rgba(59, 130, 246, 0.8)" : "none",
+                        opacity: active ? 1 : 0.5,
+                        transition: "all 0.3s ease",
+                    }}
+                ></div>
+                <svg
+                    width="50"
+                    height="50"
+                    viewBox="0 0 50 50"
+                    style={{
+                        position: "absolute",
+                        transform: "rotate(-90deg)",
+                        opacity: active ? 1 : 0,
+                        transition: "opacity 0.3s ease",
                     }}
                 >
                     <circle
-                        cx="20"
-                        cy="20"
-                        r="15"
+                        cx="25"
+                        cy="25"
+                        r="20"
                         fill="none"
-                        stroke="#2563eb"
-                        strokeWidth="3"
-                        strokeDasharray={`${2 * Math.PI * 15 * progress} ${2 * Math.PI * 15 * (1 - progress)}`}
+                        stroke="#3b82f6"
+                        strokeWidth="4"
+                        strokeDasharray={`${2 * Math.PI * 20 * progress} ${2 * Math.PI * 20 * (1 - progress)}`}
                         strokeLinecap="round"
                     />
                 </svg>
-
-                {/* Center dot */}
-                <div style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    backgroundColor: 'white'
-                }}></div>
+                <div
+                    style={{
+                        position: "absolute",
+                        top: "50%",
+                        left: "50%",
+                        transform: "translate(-50%, -50%)",
+                        width: active ? "10px" : "8px",
+                        height: active ? "10px" : "8px",
+                        borderRadius: "50%",
+                        backgroundColor: "white",
+                        boxShadow: active ? "0 0 10px rgba(59, 130, 246, 1)" : "none",
+                        transition: "all 0.3s ease",
+                    }}
+                ></div>
+                {active && (
+                    <div
+                        style={{
+                            position: "absolute",
+                            width: "100%",
+                            height: "100%",
+                            animation: "particle-spin 2s linear infinite",
+                        }}
+                    >
+                        {[...Array(8)].map((_, i) => (
+                            <div
+                                key={i}
+                                style={{
+                                    position: "absolute",
+                                    width: "4px",
+                                    height: "4px",
+                                    background: "rgba(59, 130, 246, 0.5)",
+                                    borderRadius: "50%",
+                                    transform: `rotate(${i * 45}deg) translateY(25px)`,
+                                    animation: `particle-pulse 1.5s ease-in-out infinite ${i * 0.1}s`,
+                                }}
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
+            <style jsx>{`
+                @keyframes particle-spin {
+                    from {
+                        transform: rotate(0deg);
+                    }
+                    to {
+                        transform: rotate(360deg);
+                    }
+                }
+                @keyframes particle-pulse {
+                    0%,
+                    100% {
+                        opacity: 0.3;
+                        transform: rotate(0deg) translateY(25px) scale(0.5);
+                    }
+                    50% {
+                        opacity: 0.8;
+                        transform: rotate(0deg) translateY(30px) scale(1);
+                    }
+                }
+            `}</style>
         </Html>
     );
 }
 
-function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
+function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveButton }: VRContentProps) {
     const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg", undefined, (err) => {
         console.error("Texture loading error:", err);
     });
 
-    const logoTexture = useLoader(THREE.TextureLoader, "/images/christ-logo.png", undefined, (err) => {
-        console.error("Logo texture loading error:", err);
-    });
-
-    const { gl, camera, scene, raycaster } = useThree();
+    const { gl, camera, scene } = useThree(); // Restored 'gl' for renderer access
     const controlsRef = useRef<OrbitControlsImpl | null>(null);
     const [gyroscopePermission, setGyroscopePermission] = useState<boolean | null>(null);
     const cleanupRef = useRef<(() => void) | null>(null);
-
-    // Gaze interaction state
-    const [gazePointerPosition, setGazePointerPosition] = useState<THREE.Vector3 | null>(null);
-    const [activeIntersection, setActiveIntersection] = useState<VRButtonIntersection | null>(null);
-    const buttonRefs = useRef<THREE.Mesh[]>([]);
+    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+    const [gazeTarget, setGazeTarget] = useState<number | null>(null);
     const gazeTimerRef = useRef<number>(0);
-    const gazeThreshold = 4; // seconds to trigger action
+    const gazeThreshold = 3;
 
-    // Button definitions - same as in the Home component
-    const buttons: Button[] = [
-        { text: "Enter SeekBeak VR Tour", href: "https://app.seekbeak.com/v/YbjNDVVm1A7", external: true },
-        { text: "Meet The Team", href: "/meet_the_team" },
-        { text: "About The Project", href: "/about" },
-        { text: "Credits", href: "/credits" },
-    ];
+    // Gaze-based interaction for HTML buttons
+    useFrame((state, delta) => {
+        if (deviceType === "vr" || deviceType === "mobile") {
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const intersects = buttonRefs.current
+                .map((btn, index) => {
+                    if (!btn) return null;
+                    const rect = btn.getBoundingClientRect();
+                    const vector = new THREE.Vector3(
+                        ((rect.left + rect.width / 2) / window.innerWidth) * 2 - 1,
+                        -((rect.top + rect.height / 2) / window.innerHeight) * 2 + 1,
+                        -8 // Match the Html group's z-position (updated from -5 to -8)
+                    );
+                    vector.unproject(camera);
+                    const dir = vector.sub(camera.position).normalize();
+                    const distance = -camera.position.z / dir.z;
+                    const pos = camera.position.clone().add(dir.multiplyScalar(distance));
+                    const dist = camera.position.distanceTo(pos);
+                    return { index, distance: dist };
+                })
+                .filter(Boolean)
+                .sort((a, b) => (a?.distance ?? Infinity) - (b?.distance ?? Infinity));
 
-    // Add button to reference array
-    const addButtonRef = (el: THREE.Mesh | null, index: number) => {
-        if (el) {
-            buttonRefs.current[index] = el;
+            if (intersects.length > 0) {
+                const closest = intersects[0]!;
+                if (gazeTarget === closest.index) {
+                    gazeTimerRef.current += delta;
+                    if (gazeTimerRef.current >= gazeThreshold) {
+                        buttonRefs.current[closest.index]?.click();
+                        gazeTimerRef.current = 0;
+                        setGazeTarget(null);
+                    }
+                } else {
+                    setGazeTarget(closest.index);
+                    gazeTimerRef.current = 0;
+                }
+            } else {
+                setGazeTarget(null);
+                gazeTimerRef.current = 0;
+            }
         }
-    };
+    });
 
-    // Handle device orientation permission and setup
     const setupDeviceOrientation = async (): Promise<boolean> => {
         try {
             let permissionGranted = true;
-
             if (
                 typeof window !== "undefined" &&
                 window.DeviceOrientationEvent &&
@@ -362,32 +448,25 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
                     setGyroscopePermission(false);
                 }
             }
-
             if (!permissionGranted) {
                 console.warn("Device orientation permission denied, using standard controls");
                 return false;
             }
-
             const handleOrientation = (event: DeviceOrientationEvent): void => {
                 if (event.alpha === null || event.beta === null || event.gamma === null) {
                     return;
                 }
-
-                const alpha = THREE.MathUtils.degToRad(event.alpha || 0); // Z-axis (yaw)
-                const beta = THREE.MathUtils.degToRad(event.beta || 0); // X-axis (pitch)
-                const gamma = THREE.MathUtils.degToRad(event.gamma || 0); // Y-axis (roll)
-
+                const alpha = THREE.MathUtils.degToRad(event.alpha || 0);
+                const beta = THREE.MathUtils.degToRad(event.beta || 0);
+                const gamma = THREE.MathUtils.degToRad(event.gamma || 0);
                 const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ");
                 camera.quaternion.setFromEuler(euler);
             };
-
             window.addEventListener("deviceorientation", handleOrientation, true);
             setGyroscopePermission(true);
-
             cleanupRef.current = () => {
                 window.removeEventListener("deviceorientation", handleOrientation, true);
             };
-
             return true;
         } catch (error) {
             console.error("Error in setupDeviceOrientation:", error);
@@ -403,37 +482,28 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
 
     const initVRSession = async (): Promise<boolean> => {
         if (!("xr" in navigator)) return false;
-
         try {
             const navigator_xr = navigator as Navigator & {
                 xr: {
                     requestSession(mode: string, options?: { optionalFeatures: string[] }): Promise<CustomXRSession>;
                 };
             };
-
             const session = await navigator_xr.xr.requestSession("immersive-vr", {
                 optionalFeatures: ["local-floor", "bounded-floor", "hand-tracking"],
             });
-
-            const renderer = gl as unknown as THREE.WebGLRenderer;
-
-            if (renderer.xr) {
-                renderer.xr.enabled = true;
-
-                renderer.setAnimationLoop(() => {
-                    renderer.render(scene, camera);
+            if (gl.xr) {
+                gl.xr.enabled = true;
+                gl.setAnimationLoop(() => {
+                    gl.render(scene, camera);
                 });
-
-                await renderer.xr.setSession(session as unknown as never);
+                await gl.xr.setSession(session as unknown as never);
                 console.log("VR session started successfully");
-
                 session.addEventListener("end", () => {
                     console.log("VR session ended");
-                    renderer.xr.enabled = false;
-                    renderer.setAnimationLoop(null);
+                    gl.xr.enabled = false;
+                    gl.setAnimationLoop(null);
                     onExit();
                 });
-
                 cleanupRef.current = () => {
                     try {
                         session.end().catch(console.error);
@@ -441,7 +511,6 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
                         console.error("Error ending XR session:", e);
                     }
                 };
-
                 return true;
             }
             return false;
@@ -453,11 +522,9 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
 
     useEffect(() => {
         let hasInitialized = false;
-
         const initializeExperience = async (): Promise<void> => {
             if (hasInitialized) return;
             hasInitialized = true;
-
             if (deviceType === "vr" && isVRSupported) {
                 const vrStarted = await initVRSession();
                 if (!vrStarted) {
@@ -473,7 +540,6 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
                 initializeControls();
             }
         };
-
         const initializeControls = (): void => {
             if (controlsRef.current) {
                 controlsRef.current.enabled = true;
@@ -484,89 +550,20 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
                 controlsRef.current.update();
             }
         };
-
         initializeExperience();
-
         return () => {
             if (cleanupRef.current) {
                 cleanupRef.current();
                 cleanupRef.current = null;
             }
         };
-    }, [deviceType, isVRSupported, gl, onExit, camera, scene]);
-
-    const handleVRButtonClick = (href: string, external?: boolean) => {
-        if (external) {
-            window.open(href, "_blank");
-        } else {
-            window.location.href = href;
-        }
-    };
-
-    // Gaze-based interaction system
-    useFrame((state, delta) => {
-        // Update raycaster based on camera direction
-        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-
-        // Create a point slightly in front of the camera for the gaze pointer
-        const gazePosition = new THREE.Vector3(0, 0, -5);
-        gazePosition.applyMatrix4(camera.matrixWorld);
-        setGazePointerPosition(gazePosition);
-
-        // Check for intersections with buttons
-        const buttonsArray = buttonRefs.current.filter(Boolean);
-        const intersects = raycaster.intersectObjects(buttonsArray);
-
-        if (intersects.length > 0) {
-            // Get the button index
-            const hitObject = intersects[0].object;
-            const buttonIndex = buttonsArray.findIndex(btn => btn === hitObject);
-
-            if (buttonIndex !== -1) {
-                // If we're already looking at this button, update the timer
-                if (activeIntersection && activeIntersection.buttonIndex === buttonIndex) {
-                    gazeTimerRef.current += delta;
-
-                    // If we've been looking at it long enough, trigger the click
-                    if (gazeTimerRef.current >= gazeThreshold && !activeIntersection.hovered) {
-                        const button = buttons[buttonIndex];
-                        handleVRButtonClick(button.href, button.external);
-
-                        // Mark as hovered to prevent multiple triggers
-                        setActiveIntersection({
-                            buttonIndex,
-                            time: gazeTimerRef.current,
-                            hovered: true
-                        });
-                    } else {
-                        setActiveIntersection({
-                            buttonIndex,
-                            time: gazeTimerRef.current,
-                            hovered: activeIntersection.hovered
-                        });
-                    }
-                } else {
-                    // Start looking at a new button
-                    gazeTimerRef.current = 0;
-                    setActiveIntersection({
-                        buttonIndex,
-                        time: 0,
-                        hovered: false
-                    });
-                }
-            }
-        } else {
-            // Not looking at any button, reset
-            gazeTimerRef.current = 0;
-            setActiveIntersection(null);
-        }
-    });
+    }, [deviceType, isVRSupported, onExit, camera, scene, gl]);
 
     return (
         <>
             <PerspectiveCamera makeDefault position={[0, 0, 0.1]} fov={90} />
             <ambientLight intensity={1} />
-
+            <pointLight position={[0, 2, 2]} intensity={2} distance={10} />
             {/* 360 Panorama Background */}
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]}>
                 <meshBasicMaterial
@@ -575,159 +572,24 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
                     side={THREE.BackSide}
                 />
             </Sphere>
-
-            {/* Card container - styled to match the original UI */}
-            <group position={[0, 0, -5]} scale={[1, 1, 1]}>
-                {/* Blur background effect */}
-                <mesh position={[0, 0, -0.2]}>
-                    <planeGeometry args={[6.2, 8.2]} />
-                    <meshBasicMaterial color="#ffffff" opacity={0.15} transparent />
-                </mesh>
-
-                {/* Main card background with border radius effect */}
-                <mesh position={[0, 0, -0.1]}>
-                    <planeGeometry args={[6, 8]} />
-                    <meshBasicMaterial color="#111827" opacity={0.85} transparent />
-                </mesh>
-
-                {/* Card border glow effect */}
-                <mesh position={[0, 0, -0.15]}>
-                    <planeGeometry args={[6.1, 8.1]} />
-                    <meshBasicMaterial color="#4b5563" opacity={0.4} transparent />
-                </mesh>
-
-                {/* Logo container with background */}
-                <group position={[0, 3, 0]}>
-                    <mesh position={[0, 0, -0.05]} rotation={[0, 0, 0]}>
-                        <circleGeometry args={[1.2, 32]} />
-                        <meshBasicMaterial color="#ffffff" opacity={0.9} transparent />
-                    </mesh>
-
-                    <mesh position={[0, 0, 0]}>
-                        <planeGeometry args={[2, 2]} />
-                        <meshBasicMaterial map={logoTexture} transparent />
-                    </mesh>
-                </group>
-
-                {/* Title */}
-                <Text
-                    position={[0, 1.8, 0]}
-                    fontSize={0.3}
-                    color="white"
-                    anchorX="center"
-                    anchorY="middle"
-                    font="/fonts/LeagueSpartan-Bold.ttf"
-                    maxWidth={5}
-                >
-                    Christ University (Central Campus)
-                </Text>
-
-                {/* Subtitle */}
-                <Text
-                    position={[0, 1.2, 0]}
-                    fontSize={0.25}
-                    color="white"
-                    anchorX="center"
-                    anchorY="middle"
-                    font="/fonts/LeagueSpartan-Bold.ttf"
-                >
-                    VR Experience
-                </Text>
-
-                {/* Button container */}
-                <group position={[0, -0.5, 0]}>
-                    {buttons.map((button, index) => (
-                        <group
-                            key={index}
-                            position={[0, -index * 0.7, 0]}
-                        >
-                            {/* Button background with interaction capabilities */}
-                            <mesh
-                                ref={(el) => addButtonRef(el, index)}
-                                onClick={() => handleVRButtonClick(button.href, button.external)}
-                            >
-                                <planeGeometry args={[4, 0.6]} />
-                                <meshBasicMaterial
-                                    color={activeIntersection?.buttonIndex === index ? "#2563eb" : "#1e3a8a"}
-                                    transparent
-                                    opacity={0.9}
-                                />
-                            </mesh>
-
-                            {/* Progress bar for gaze timing (only shows when being gazed at) */}
-                            {activeIntersection?.buttonIndex === index && (
-                                <mesh position={[0, -0.35, 0.01]}>
-                                    <planeGeometry args={[4, 0.1]} />
-                                    <meshBasicMaterial color="#4b5563" />
-                                </mesh>
-                            )}
-
-                            {activeIntersection?.buttonIndex === index && (
-                                <mesh
-                                    position={[
-                                        -2 + (4 * Math.min(activeIntersection.time / gazeThreshold, 1)) / 2,
-                                        -0.35,
-                                        0.02
-                                    ]}
-                                    scale={[Math.min(activeIntersection.time / gazeThreshold, 1), 1, 1]}
-                                >
-                                    <planeGeometry args={[4, 0.1]} />
-                                    <meshBasicMaterial color="#2563eb" />
-                                </mesh>
-                            )}
-
-                            {/* Button text */}
-                            <Text
-                                position={[0, 0, 0.1]}
-                                fontSize={0.2}
-                                color="white"
-                                anchorX="center"
-                                anchorY="middle"
-                                font="/fonts/LeagueSpartan-Bold.ttf"
-                            >
-                                {button.text}
-                            </Text>
-                        </group>
-                    ))}
-                </group>
-
-                {/* Credits section */}
-                <group position={[0, -3.5, 0]}>
-                    <mesh position={[0, 0.15, -0.05]}>
-                        <planeGeometry args={[5, 0.8]} />
-                        <meshBasicMaterial color="#1f2937" opacity={0.7} transparent />
-                    </mesh>
-
-                    <Text
-                        position={[0, 0.3, 0]}
-                        fontSize={0.15}
-                        color="white"
-                        anchorX="center"
-                        anchorY="middle"
-                        font="/fonts/LeagueSpartan-Bold.ttf"
-                    >
-                        Guided by Dr. Suresh K
-                    </Text>
-                    <Text
-                        position={[0, 0, 0]}
-                        fontSize={0.15}
-                        color="white"
-                        anchorX="center"
-                        anchorY="middle"
-                        font="/fonts/LeagueSpartan-Bold.ttf"
-                    >
-                        Directed by Dr. Ashok Immanuel V
-                    </Text>
-                </group>
+            {/* Card UI embedded in 3D space */}
+            <group position={[0, 0, -8]}>
+                <Html transform occlude center>
+                    <div style={{ width: "600px", transform: "scale(0.8)" }}>
+                        <CardUI
+                            activeButton={activeButton}
+                            setActiveButton={setActiveButton}
+                            buttonRefs={buttonRefs}
+                        />
+                    </div>
+                </Html>
             </group>
-
             {/* Gaze pointer */}
-            {gazePointerPosition && (
-                <group position={[0, 0, -2]} rotation={[0, 0, 0]}>
-                    <GazePointer />
+            {(deviceType === "vr" || deviceType === "mobile") && (
+                <group position={[0, 0, -2]}>
+                    <GazePointer active={!!gazeTarget} />
                 </group>
             )}
-
             {(deviceType === "desktop" || (deviceType === "mobile" && gyroscopePermission === false)) && (
                 <OrbitControls
                     ref={controlsRef}
