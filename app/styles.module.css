@@ -530,13 +530,17 @@
         height: 30px;
     }
     .mobileVrOverlay {
-        position: absolute;
+        position: fixed; /* Changed to fixed for consistent overlay */
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
         width: 90vw;
         max-width: 380px;
-        z-index: 1000;
+        z-index: 1001; /* Increased z-index to stay above canvas */
         pointer-events: auto;
+        background: rgba(255, 255, 255, 0.95); /* Ensure background is visible */
+        border-radius: 20px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
     }
 }

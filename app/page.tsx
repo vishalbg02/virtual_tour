@@ -171,7 +171,7 @@ interface VRSceneProps {
 }
 
 function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setActiveButton }: VRSceneProps) {
-    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]) // Moved useRef to top level
+    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
 
     return (
         <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
@@ -182,6 +182,7 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setA
                     deviceType={deviceType}
                     activeButton={activeButton}
                     setActiveButton={setActiveButton}
+                    buttonRefs={buttonRefs} // Pass buttonRefs to VRContent
                 />
             </Canvas>
             <div
@@ -198,7 +199,7 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setA
                     justifyContent: "center",
                     cursor: "pointer",
                     boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
-                    zIndex: 1000,
+                    zIndex: 1001, // Increased z-index
                 }}
                 onClick={onExit}
                 title="Exit VR Preview"
@@ -220,13 +221,13 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setA
                         color: "white",
                         borderRadius: "20px",
                         fontFamily: "sans-serif",
-                        zIndex: 1000,
+                        zIndex: 1001, // Increased z-index
                     }}
                 >
                     Tilt or swipe to look around
                 </div>
             )}
-            {/* Render CardUI as an overlay for mobile in VR mode */}
+            {/* Always render CardUI as an overlay in mobile VR */}
             {deviceType === "mobile" && (
                 <div className={styles.mobileVrOverlay}>
                     <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />
@@ -242,6 +243,7 @@ interface VRContentProps {
     deviceType: DeviceType
     activeButton: string | null
     setActiveButton: (button: string | null) => void
+    buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]> // Add buttonRefs to props
 }
 
 function GazePointer({ active }: { active: boolean }) {
@@ -311,12 +313,18 @@ function GazePointer({ active }: { active: boolean }) {
     )
 }
 
-function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveButton }: VRContentProps) {
+function VRContent({
+                       onExit,
+                       isVRSupported,
+                       deviceType,
+                       activeButton,
+                       setActiveButton,
+                       buttonRefs,
+                   }: VRContentProps) {
     const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg")
     const { camera, gl, scene } = useThree()
     const controlsRef = useRef<OrbitControlsImpl | null>(null)
     const cleanupRef = useRef<(() => void) | null>(null)
-    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
     const [gazeTarget, setGazeTarget] = useState<number | null>(null)
     const gazeTimerRef = useRef<number>(0)
     const gazeThreshold = 2
