@@ -565,7 +565,7 @@ function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveB
             <ambientLight intensity={1} />
             <pointLight position={[0, 2, 2]} intensity={2} distance={10} />
             {/* 360 Panorama Background */}
-            <Sphere args={[500, 60, 40]} scale={[1, 1, -1]}>
+            <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
                 <meshBasicMaterial
                     map={texture || null}
                     color={texture ? undefined : "gray"}
