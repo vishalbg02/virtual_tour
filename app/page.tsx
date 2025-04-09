@@ -9,10 +9,8 @@ import { PerspectiveCamera, OrbitControls, Sphere, Text } from "@react-three/dre
 import * as THREE from "three";
 import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
-// Define the constructor type with requestPermission
-interface DeviceOrientationEventConstructor {
-    new (type: string, eventInitDict?: DeviceOrientationEventInit): DeviceOrientationEvent;
-    prototype: DeviceOrientationEvent;
+// Custom interface for DeviceOrientationEvent with requestPermission
+interface DeviceOrientationEventWithPermission extends DeviceOrientationEvent {
     requestPermission?: () => Promise<"granted" | "denied">;
 }
 
@@ -33,9 +31,11 @@ export default function Home() {
 
     const startVRSession = async () => {
         console.log("VR button clicked");
-        if (typeof navigator !== "undefined" && navigator.xr) {
+        const xrNavigator = navigator as Navigator & { xr?: XRSystem };
+        if (typeof navigator !== "undefined" && xrNavigator.xr) {
+            const xrSystem = xrNavigator.xr; // Define here to satisfy TypeScript
             try {
-                const supported = await navigator.xr.isSessionSupported("immersive-vr");
+                const supported = await xrSystem.isSessionSupported("immersive-vr");
                 console.log("VR supported:", supported);
                 setIsVRSupported(supported);
                 setVrSession(true);
@@ -97,7 +97,6 @@ export default function Home() {
                     <p className={styles.creditText}>Directed by Dr. Ashok Immanuel V</p>
                 </div>
             </div>
-            {/* VR Entry Symbol */}
             {!vrSession && (
                 <div
                     style={{
@@ -142,10 +141,14 @@ interface VRSceneProps {
 function EnhancedVRScene({ onExit, isVRSupported }: VRSceneProps) {
     return (
         <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
-            <Canvas gl={{ antialias: true }}>
+            <Canvas
+                gl={{ antialias: true, alpha: false }}
+                onCreated={({ gl }) => {
+                    gl.setClearColor(new THREE.Color(0x000000));
+                }}
+            >
                 <VRContent onExit={onExit} isVRSupported={isVRSupported} />
             </Canvas>
-            {/* Exit Symbol */}
             <div
                 style={{
                     position: "absolute",
@@ -180,9 +183,10 @@ interface VRContentProps {
 }
 
 function VRContent({ onExit, isVRSupported }: VRContentProps) {
-    // Load texture at the top level
-    const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg");
-    const { gl, camera } = useThree(); // Removed unused 'scene'
+    const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg", undefined, (err) => {
+        console.error("Texture loading error:", err);
+    });
+    const { gl, camera, scene } = useThree();
     const controlsRef = useRef<OrbitControlsImpl | null>(null);
     const isMobile = useRef(false);
     const xrSessionRef = useRef<XRSession | null>(null);
@@ -196,121 +200,98 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
         isMobile.current = /mobile|android|iphone|ipad|tablet/i.test(userAgent);
         console.log("Is mobile device:", isMobile.current);
 
-        // Handle VR session if supported
-        if (isVRSupported && typeof navigator !== "undefined" && navigator.xr) {
+        const xrNavigator = navigator as Navigator & { xr?: XRSystem };
+        if (isVRSupported && xrNavigator.xr) {
+            const xrSystem = xrNavigator.xr; // Define here to satisfy TypeScript
             const startXRSession = async () => {
                 try {
-                    const session = await navigator.xr?.requestSession("immersive-vr");
+                    const session = await xrSystem.requestSession("immersive-vr");
                     if (session) {
                         xrSessionRef.current = session;
                         const renderer = gl as THREE.WebGLRenderer;
-                        if (renderer.xr) {
-                            renderer.xr.enabled = true;
-                            await renderer.xr.setSession(session);
-                            console.log("VR session started successfully");
-                            session.addEventListener("end", () => {
-                                console.log("VR session ended");
-                                renderer.xr.enabled = false;
-                                xrSessionRef.current = null;
-                                onExit();
-                            });
-                        }
+                        renderer.xr.enabled = true;
+                        renderer.setAnimationLoop(() => {
+                            renderer.render(scene, camera);
+                        });
+                        await renderer.xr.setSession(session);
+                        console.log("VR session started successfully");
+                        session.addEventListener("end", () => {
+                            console.log("VR session ended");
+                            renderer.xr.enabled = false;
+                            renderer.setAnimationLoop(null);
+                            xrSessionRef.current = null;
+                            onExit();
+                        });
+                    } else {
+                        console.warn("No VR session created, falling back to non-VR mode");
+                        onExit();
                     }
                 } catch (error) {
                     console.error("Failed to start VR session:", error);
+                    onExit();
                 }
             };
             startXRSession();
-        } else {
-            console.log("Initializing non-VR mode");
-            if (!isMobile.current) {
-                // Desktop/laptop: Use OrbitControls
-                if (controlsRef.current) {
-                    controlsRef.current.enabled = true;
-                    controlsRef.current.enableDamping = true;
-                    controlsRef.current.dampingFactor = 0.05;
-                    controlsRef.current.rotateSpeed = 1.0;
-                    controlsRef.current.update();
-                    console.log("OrbitControls initialized for desktop");
-                }
-            } else {
-                // Mobile: Request device orientation permission and set up controls
-                const handleOrientation = (event: DeviceOrientationEvent) => {
-                    console.log("Device orientation event:", {
-                        alpha: event.alpha,
-                        beta: event.beta,
-                        gamma: event.gamma,
-                    });
+        } else if (isMobile.current) {
+            // Mobile: Use gyroscope via device orientation
+            const setupDeviceOrientation = async () => {
+                try {
+                    let permissionGranted = true;
+                    if (
+                        typeof DeviceOrientationEvent !== "undefined" &&
+                        "requestPermission" in DeviceOrientationEvent
+                    ) {
+                        console.log("Requesting motion/orientation permission");
+                        const permission = await (DeviceOrientationEvent as unknown as DeviceOrientationEventWithPermission).requestPermission!();
+                        console.log("Permission result:", permission);
+                        permissionGranted = permission === "granted";
+                    }
 
-                    if (event.alpha === null || event.beta === null || event.gamma === null) {
-                        console.warn("Invalid orientation data, skipping update");
+                    if (!permissionGranted) {
+                        console.warn("Device orientation permission denied, using default view");
+                        camera.position.set(0, 0, 0.1);
                         return;
                     }
 
-                    // Convert degrees to radians
-                    const alpha = THREE.MathUtils.degToRad(event.alpha); // Z-axis rotation (yaw)
-                    const beta = THREE.MathUtils.degToRad(event.beta); // X-axis rotation (pitch)
-                    const gamma = THREE.MathUtils.degToRad(event.gamma); // Y-axis rotation (roll)
-
-                    // Create a quaternion for orientation
-                    const quaternion = new THREE.Quaternion();
-                    const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ"); // YXZ order
-                    quaternion.setFromEuler(euler);
-
-                    // Apply to camera
-                    camera.quaternion.copy(quaternion);
-                    console.log("Camera quaternion updated:", quaternion);
-                };
-
-                const setupDeviceOrientation = async () => {
-                    try {
-                        console.log("Setting up device orientation controls");
-
-                        // Request permission for iOS 13+ devices
-                        let permissionGranted = true;
-                        if (
-                            typeof DeviceOrientationEvent !== "undefined" &&
-                            typeof (DeviceOrientationEvent as DeviceOrientationEventConstructor).requestPermission === "function"
-                        ) {
-                            console.log("Requesting motion/orientation permission");
-                            try {
-                                const permission = await (DeviceOrientationEvent as DeviceOrientationEventConstructor).requestPermission!();
-                                console.log("Permission result:", permission);
-                                if (permission !== "granted") {
-                                    console.warn("Device orientation permission denied");
-                                    permissionGranted = false;
-                                }
-                            } catch (permError) {
-                                console.error("Error requesting permission:", permError);
-                                permissionGranted = false;
-                            }
-                        } else {
-                            console.log("No permission required (non-iOS or no requestPermission)");
-                        }
-
-                        if (!permissionGranted) {
-                            console.warn("Cannot set up orientation controls due to lack of permission");
+                    const handleOrientation = (event: DeviceOrientationEvent) => {
+                        if (event.alpha === null || event.beta === null || event.gamma === null) {
+                            console.warn("Invalid orientation data, skipping update");
                             return;
                         }
 
-                        window.addEventListener("deviceorientation", handleOrientation, true);
-                        console.log("Device orientation listener added");
-                    } catch (error) {
-                        console.error("Error in setupDeviceOrientation:", error);
-                    }
-                };
+                        const alpha = THREE.MathUtils.degToRad(event.alpha || 0); // Z-axis (yaw)
+                        const beta = THREE.MathUtils.degToRad(event.beta || 0);  // X-axis (pitch)
+                        const gamma = THREE.MathUtils.degToRad(event.gamma || 0); // Y-axis (roll)
 
-                setupDeviceOrientation();
+                        const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ");
+                        camera.quaternion.setFromEuler(euler);
+                    };
 
-                // Cleanup
-                return () => {
-                    window.removeEventListener("deviceorientation", handleOrientation, true);
-                    console.log("Device orientation listener removed");
-                };
+                    window.addEventListener("deviceorientation", handleOrientation, true);
+                    console.log("Device orientation listener added");
+
+                    return () => {
+                        window.removeEventListener("deviceorientation", handleOrientation, true);
+                        console.log("Device orientation listener removed");
+                    };
+                } catch (error) {
+                    console.error("Error in setupDeviceOrientation:", error);
+                    camera.position.set(0, 0, 0.1);
+                }
+            };
+            setupDeviceOrientation();
+        } else {
+            // Desktop: Use OrbitControls
+            if (controlsRef.current) {
+                controlsRef.current.enabled = true;
+                controlsRef.current.enableDamping = true;
+                controlsRef.current.dampingFactor = 0.05;
+                controlsRef.current.rotateSpeed = 1.0;
+                controlsRef.current.update();
+                console.log("OrbitControls initialized for desktop");
             }
         }
 
-        // Cleanup XR session on unmount
         return () => {
             if (xrSessionRef.current) {
                 xrSessionRef.current.end().catch((err) => {
@@ -319,43 +300,23 @@ function VRContent({ onExit, isVRSupported }: VRContentProps) {
                 console.log("Cleanup: VR session ended");
             }
         };
-    }, [isVRSupported, gl, onExit, camera, texture]);
+    }, [isVRSupported, gl, onExit, camera, texture, scene]);
 
     return (
         <>
             <PerspectiveCamera makeDefault position={[0, 0, 0.1]} fov={90} />
             <ambientLight intensity={1} />
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]}>
-                <meshBasicMaterial map={texture} side={THREE.BackSide} />
+                <meshBasicMaterial map={texture || null} color={texture ? undefined : "gray"} side={THREE.BackSide} />
             </Sphere>
-            <Text
-                position={[0, 1, -5]}
-                fontSize={0.5}
-                color="white"
-                anchorX="center"
-                anchorY="middle"
-                font="/fonts/LeagueSpartan-Bold.ttf"
-            >
+            <Text position={[0, 1, -5]} fontSize={0.5} color="white" anchorX="center" anchorY="middle" font="/fonts/LeagueSpartan-Bold.ttf">
                 Welcome to Christ University VR
             </Text>
-            <Text
-                position={[0, 0.5, -5]}
-                fontSize={0.3}
-                color="white"
-                anchorX="center"
-                anchorY="middle"
-                font="/fonts/LeagueSpartan-Bold.ttf"
-            >
+            <Text position={[0, 0.5, -5]} fontSize={0.3} color="white" anchorX="center" anchorY="middle" font="/fonts/LeagueSpartan-Bold.ttf">
                 {isVRSupported ? "Use controllers or gaze" : isMobile.current ? "Tilt your device to explore" : "Use mouse or touch to explore"}
             </Text>
             {!isVRSupported && !isMobile.current && (
-                <OrbitControls
-                    ref={controlsRef}
-                    enableZoom={false}
-                    enablePan={false}
-                    enableRotate={true}
-                    target={[0, 0, 0]}
-                />
+                <OrbitControls ref={controlsRef} enableZoom={false} enablePan={false} enableRotate={true} target={[0, 0, 0]} />
             )}
         </>
     );
