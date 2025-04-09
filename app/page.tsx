@@ -92,9 +92,11 @@ function Home() {
     const [deviceType, setDeviceType] = useState<DeviceType>("desktop")
 
     useEffect(() => {
+        // Force detect mobile more aggressively
         const userAgent = navigator.userAgent.toLowerCase()
-        const isMobile = /mobile|android|iphone|ipad|tablet/i.test(userAgent)
+        const isMobile = /mobile|android|iphone|ipad|tablet|mobi/i.test(userAgent) || window.innerWidth < 768
         setDeviceType(isMobile ? "mobile" : "desktop")
+        console.log("Device detected as:", isMobile ? "mobile" : "desktop")
     }, [])
 
     const startVRSession = async () => {
@@ -384,6 +386,15 @@ function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveB
     const gazeTimerRef = useRef<number>(0)
     const gazeThreshold = 3
 
+    // Always show gaze pointer on mobile
+    useEffect(() => {
+        if (deviceType === "mobile") {
+            console.log("Mobile device detected, showing gaze pointer")
+            // Force show gaze pointer
+            setGazeTarget(0)
+        }
+    }, [deviceType])
+
     // Gaze-based interaction for HTML buttons
     useFrame((state, delta) => {
         if (deviceType === "vr" || deviceType === "mobile") {
@@ -421,7 +432,8 @@ function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveB
                     setGazeTarget(closest.index)
                     gazeTimerRef.current = 0
                 }
-            } else {
+            } else if (deviceType !== "mobile") {
+                // Keep gaze target for mobile even when not hovering
                 setGazeTarget(null)
                 gazeTimerRef.current = 0
             }
@@ -558,29 +570,57 @@ function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveB
         }
     }, [deviceType, isVRSupported, onExit, camera, scene, gl])
 
+    // Create a separate DOM element for mobile UI
+    const MobileCardUI = () => {
+        if (deviceType !== "mobile") return null
+
+        return (
+            <div
+                style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    zIndex: 1001,
+                    width: "100%",
+                    maxWidth: "90vw",
+                    pointerEvents: "auto",
+                }}
+            >
+                <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />
+            </div>
+        )
+    }
+
     return (
         <>
             <PerspectiveCamera makeDefault position={[0, 0, 0.1]} fov={90} />
             <ambientLight intensity={1} />
             <pointLight position={[0, 2, 2]} intensity={2} distance={10} />
+
             {/* 360 Panorama Background */}
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
                 <meshBasicMaterial map={texture || null} color={texture ? undefined : "gray"} side={THREE.BackSide} />
             </Sphere>
-            {/* Card UI embedded in 3D space - Fixed container for mobile */}
-            <group position={[0, 0, -8.5]} visible={true}>
-                <Html transform occlude center>
-                    <div style={{ width: "600px", transform: "scale(0.8)" }}>
-                        <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />
-                    </div>
-                </Html>
-            </group>
-            {/* Gaze pointer - Now visible for both VR and mobile */}
-            {(deviceType === "vr" || deviceType === "mobile") && (
-                <group position={[0, 0, -2]} visible={true}>
-                    <GazePointer active={!!gazeTarget} />
+
+            {/* Card UI embedded in 3D space - Only for desktop and VR */}
+            {deviceType !== "mobile" && (
+                <group position={[0, 0, -8.5]}>
+                    <Html transform occlude center>
+                        <div style={{ width: "600px", transform: "scale(0.8)" }}>
+                            <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />
+                        </div>
+                    </Html>
                 </group>
             )}
+
+            {/* Gaze pointer - Always visible for mobile */}
+            {(deviceType === "vr" || deviceType === "mobile") && (
+                <group position={[0, 0, -2]}>
+                    <GazePointer active={deviceType === "mobile" || !!gazeTarget} />
+                </group>
+            )}
+
             {(deviceType === "desktop" || (deviceType === "mobile" && gyroscopePermission === false)) && (
                 <OrbitControls
                     ref={controlsRef}
@@ -596,6 +636,11 @@ function VRContent({ onExit, isVRSupported, deviceType, activeButton, setActiveB
                     maxPolarAngle={Math.PI * 0.9}
                 />
             )}
+
+            {/* Fallback HTML UI for mobile */}
+            <Html fullscreen>
+                <MobileCardUI />
+            </Html>
         </>
     )
 }
