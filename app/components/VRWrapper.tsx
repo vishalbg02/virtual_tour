@@ -75,9 +75,6 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     const gazeTimerRef = useRef<number>(0);
     const gazeThreshold = 4;
 
-    // Reference for the HTML container
-    const htmlContainerRef = useRef<HTMLDivElement>(null);
-
     useEffect(() => {
         if (deviceType === "mobile" || deviceType === "vr") {
             setGazeTarget(0);
@@ -205,10 +202,6 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
         return () => cleanupRef.current?.();
     }, [deviceType, isVRSupported, onExit, camera, scene, gl]);
 
-    // Adjust the positioning for better visibility on mobile
-    const contentDistance = deviceType === "mobile" ? -5 : -8;
-    const contentWidth = deviceType === "mobile" ? 350 : 600;
-
     return (
         <>
             <PerspectiveCamera makeDefault position={[0, 0, 0.1]} fov={90} />
@@ -217,29 +210,43 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
             </Sphere>
-            <group position={[0, 0, contentDistance]}>
+
+            {/* Use fixed positioning that will work on all devices */}
+            <group position={[0, 0, -3]}>
                 <Html
-                    transform
-                    occlude
                     center
-                    distanceFactor={1}
-                    prepend
-                    zIndexRange={[100, 0]}
+                    calculatePosition={(el, camera, size) => {
+                        // Force the menu to be positioned in front of the camera
+                        const vector = new THREE.Vector3(0, 0, -3);
+                        vector.project(camera);
+                        const x = (vector.x * 0.5 + 0.5) * size.width;
+                        const y = (vector.y * -0.5 + 0.5) * size.height;
+                        return [x, y];
+                    }}
+                    style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center"
+                    }}
                 >
                     <div
-                        ref={htmlContainerRef}
                         style={{
-                            width: `${contentWidth}px`,
-                            backgroundColor: "rgba(0, 0, 0, 0.7)",
+                            width: deviceType === "mobile" ? "300px" : "600px",
+                            backgroundColor: "rgba(0, 0, 0, 0.8)",
                             padding: "20px",
                             borderRadius: "10px",
-                            boxShadow: "0 0 20px rgba(0, 0, 0, 0.5)"
+                            boxShadow: "0 0 20px rgba(59, 130, 246, 0.5)",
+                            border: "1px solid #3b82f6",
+                            color: "white"
                         }}
                     >
                         {children}
                     </div>
                 </Html>
             </group>
+
             {(deviceType === "vr" || deviceType === "mobile") && (
                 <group position={[0, 0, -2]}>
                     <GazePointer active={gazeTarget !== null} />
@@ -262,28 +269,55 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     );
 }
 
-export default function VRWrapper({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
-    // Add overlay style for mobile to enhance menu visibility
-    const mobileOverlayStyle = deviceType === "mobile" ? {
-        position: "fixed" as const,
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        backgroundColor: "rgba(0, 0, 0, 0.3)",
-        zIndex: 9,
-        pointerEvents: "none" as const
-    } : {};
+// This secondary HTML renderer ensures the menu is shown on mobile devices
+function MobileBackupMenu({ children, deviceType }: { children: React.ReactNode, deviceType: DeviceType }) {
+    if (deviceType !== "mobile") return null;
 
     return (
+        <div
+            style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                zIndex: 1000,
+                pointerEvents: "none"
+            }}
+        >
+            <div
+                style={{
+                    width: "90%",
+                    maxWidth: "350px",
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    padding: "20px",
+                    borderRadius: "10px",
+                    boxShadow: "0 0 20px rgba(59, 130, 246, 0.5)",
+                    border: "1px solid #3b82f6",
+                    color: "white",
+                    pointerEvents: "auto"
+                }}
+            >
+                {children}
+            </div>
+        </div>
+    );
+}
+
+export default function VRWrapper({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
+    return (
         <>
-            {deviceType === "mobile" && <div style={mobileOverlayStyle}></div>}
             <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
                 <Canvas gl={{ antialias: true, alpha: false }}>
                     <VRContent onExit={onExit} isVRSupported={isVRSupported} deviceType={deviceType} buttonRefs={buttonRefs}>
                         {children}
                     </VRContent>
                 </Canvas>
+
+                {/* Exit button */}
                 <div
                     style={{
                         position: "absolute",
@@ -308,6 +342,8 @@ export default function VRWrapper({ children, onExit, isVRSupported, deviceType,
                         <path d="M6 6l12 12" />
                     </svg>
                 </div>
+
+                {/* Mobile instruction tooltip */}
                 {deviceType === "mobile" && (
                     <div
                         style={{
@@ -327,6 +363,11 @@ export default function VRWrapper({ children, onExit, isVRSupported, deviceType,
                     </div>
                 )}
             </div>
+
+            {/* Backup menu for mobile that will ALWAYS be visible */}
+            <MobileBackupMenu deviceType={deviceType}>
+                {children}
+            </MobileBackupMenu>
         </>
     );
 }
