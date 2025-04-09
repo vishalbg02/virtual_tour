@@ -171,6 +171,8 @@ interface VRSceneProps {
 }
 
 function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setActiveButton }: VRSceneProps) {
+    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]) // Moved useRef to top level
+
     return (
         <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
             <Canvas gl={{ antialias: true, alpha: false }}>
@@ -227,7 +229,7 @@ function EnhancedVRScene({ onExit, isVRSupported, deviceType, activeButton, setA
             {/* Render CardUI as an overlay for mobile in VR mode */}
             {deviceType === "mobile" && (
                 <div className={styles.mobileVrOverlay}>
-                    <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={useRef([])} />
+                    <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />
                 </div>
             )}
         </div>
