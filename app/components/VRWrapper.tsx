@@ -210,43 +210,11 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
             </Sphere>
-
-            {/* Use fixed positioning that will work on all devices */}
-            <group position={[0, 0, -3]}>
-                <Html
-                    center
-                    calculatePosition={(el, camera, size) => {
-                        // Force the menu to be positioned in front of the camera
-                        const vector = new THREE.Vector3(0, 0, -3);
-                        vector.project(camera);
-                        const x = (vector.x * 0.5 + 0.5) * size.width;
-                        const y = (vector.y * -0.5 + 0.5) * size.height;
-                        return [x, y];
-                    }}
-                    style={{
-                        width: "100%",
-                        height: "100%",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center"
-                    }}
-                >
-                    <div
-                        style={{
-                            width: deviceType === "mobile" ? "300px" : "600px",
-                            backgroundColor: "rgba(0, 0, 0, 0.8)",
-                            padding: "20px",
-                            borderRadius: "10px",
-                            boxShadow: "0 0 20px rgba(59, 130, 246, 0.5)",
-                            border: "1px solid #3b82f6",
-                            color: "white"
-                        }}
-                    >
-                        {children}
-                    </div>
+            <group position={[0, 0, -8]}>
+                <Html transform occlude center>
+                    <div style={{ width: "600px", transform: "scale(0.8)" }}>{children}</div>
                 </Html>
             </group>
-
             {(deviceType === "vr" || deviceType === "mobile") && (
                 <group position={[0, 0, -2]}>
                     <GazePointer active={gazeTarget !== null} />
@@ -269,105 +237,56 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     );
 }
 
-// This secondary HTML renderer ensures the menu is shown on mobile devices
-function MobileBackupMenu({ children, deviceType }: { children: React.ReactNode, deviceType: DeviceType }) {
-    if (deviceType !== "mobile") return null;
-
-    return (
-        <div
-            style={{
-                position: "fixed",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                zIndex: 1000,
-                pointerEvents: "none"
-            }}
-        >
-            <div
-                style={{
-                    width: "90%",
-                    maxWidth: "350px",
-                    backgroundColor: "rgba(0, 0, 0, 0.8)",
-                    padding: "20px",
-                    borderRadius: "10px",
-                    boxShadow: "0 0 20px rgba(59, 130, 246, 0.5)",
-                    border: "1px solid #3b82f6",
-                    color: "white",
-                    pointerEvents: "auto"
-                }}
-            >
-                {children}
-            </div>
-        </div>
-    );
-}
-
 export default function VRWrapper({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
     return (
-        <>
-            <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
-                <Canvas gl={{ antialias: true, alpha: false }}>
-                    <VRContent onExit={onExit} isVRSupported={isVRSupported} deviceType={deviceType} buttonRefs={buttonRefs}>
-                        {children}
-                    </VRContent>
-                </Canvas>
-
-                {/* Exit button */}
+        <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
+            <Canvas gl={{ antialias: true, alpha: false }}>
+                <VRContent onExit={onExit} isVRSupported={isVRSupported} deviceType={deviceType} buttonRefs={buttonRefs}>
+                    {children}
+                </VRContent>
+            </Canvas>
+            <div
+                style={{
+                    position: "absolute",
+                    top: "20px",
+                    right: "20px",
+                    width: "40px",
+                    height: "40px",
+                    background: "#fff",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
+                    zIndex: 1001,
+                }}
+                onClick={onExit}
+                title="Exit VR Preview"
+            >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2">
+                    <path d="M18 6L6 18" />
+                    <path d="M6 6l12 12" />
+                </svg>
+            </div>
+            {deviceType === "mobile" && (
                 <div
                     style={{
                         position: "absolute",
-                        top: "20px",
-                        right: "20px",
-                        width: "40px",
-                        height: "40px",
-                        background: "#fff",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "pointer",
-                        boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
+                        bottom: "20px",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        padding: "10px 20px",
+                        background: "rgba(0, 0, 0, 0.7)",
+                        color: "white",
+                        borderRadius: "20px",
+                        fontFamily: "sans-serif",
                         zIndex: 1001,
                     }}
-                    onClick={onExit}
-                    title="Exit VR Preview"
                 >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2">
-                        <path d="M18 6L6 18" />
-                        <path d="M6 6l12 12" />
-                    </svg>
+                    Tilt or swipe to look around
                 </div>
-
-                {/* Mobile instruction tooltip */}
-                {deviceType === "mobile" && (
-                    <div
-                        style={{
-                            position: "absolute",
-                            bottom: "20px",
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                            padding: "10px 20px",
-                            background: "rgba(0, 0, 0, 0.7)",
-                            color: "white",
-                            borderRadius: "20px",
-                            fontFamily: "sans-serif",
-                            zIndex: 1001,
-                        }}
-                    >
-                        Tilt or swipe to look around • Focus on buttons to select
-                    </div>
-                )}
-            </div>
-
-            {/* Backup menu for mobile that will ALWAYS be visible */}
-            <MobileBackupMenu deviceType={deviceType}>
-                {children}
-            </MobileBackupMenu>
-        </>
+            )}
+        </div>
     );
 }
