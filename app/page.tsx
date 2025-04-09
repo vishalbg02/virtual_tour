@@ -23,7 +23,7 @@ interface Button {
 
 type DeviceType = "desktop" | "mobile" | "vr";
 
-export default function Home() {
+function Home() {
     const [activeButton, setActiveButton] = useState<string | null>(null);
     const [vrSession, setVrSession] = useState<boolean>(false);
     const [isVRSupported, setIsVRSupported] = useState<boolean>(false);
@@ -42,11 +42,11 @@ export default function Home() {
     const startVRSession = async () => {
         console.log("VR button clicked");
 
-        if ('xr' in navigator) {
+        if ("xr" in navigator) {
             try {
-                // Type assertion here is safe because we've checked 'xr' exists in navigator
-                const isSupported = await (navigator as Navigator & { xr: { isSessionSupported(mode: string): Promise<boolean> } })
-                    .xr.isSessionSupported("immersive-vr");
+                const isSupported = await (navigator as Navigator & {
+                    xr: { isSessionSupported(mode: string): Promise<boolean> };
+                }).xr.isSessionSupported("immersive-vr");
 
                 console.log("VR supported:", isSupported);
                 setIsVRSupported(isSupported);
@@ -77,7 +77,13 @@ export default function Home() {
             <div className={styles.blurBackground}></div>
             <div className={styles.card}>
                 <div className={styles.logoContainer}>
-                    <Image src="/images/christ-logo.png" alt="Christ University Logo" width={150} height={150} className={styles.logo} />
+                    <Image
+                        src="/images/christ-logo.png"
+                        alt="Christ University Logo"
+                        width={150}
+                        height={150}
+                        className={styles.logo}
+                    />
                 </div>
                 <h1 className={styles.title}>Christ University (Central Campus)</h1>
                 <h2 className={styles.subtitle}>VR Experience</h2>
@@ -229,23 +235,36 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
         console.error("Texture loading error:", err);
     });
 
+    const logoTexture = useLoader(THREE.TextureLoader, "/images/christ-logo.png", undefined, (err) => {
+        console.error("Logo texture loading error:", err);
+    });
+
     const { gl, camera, scene } = useThree();
     const controlsRef = useRef<OrbitControlsImpl | null>(null);
     const [gyroscopePermission, setGyroscopePermission] = useState<boolean | null>(null);
     const cleanupRef = useRef<(() => void) | null>(null);
+
+    // Button definitions - same as in the Home component
+    const buttons: Button[] = [
+        { text: "Enter SeekBeak VR Tour", href: "https://app.seekbeak.com/v/YbjNDVVm1A7", external: true },
+        { text: "Meet The Team", href: "/meet_the_team" },
+        { text: "About The Project", href: "/about" },
+        { text: "Credits", href: "/credits" },
+    ];
 
     // Handle device orientation permission and setup
     const setupDeviceOrientation = async (): Promise<boolean> => {
         try {
             let permissionGranted = true;
 
-            // Request permission for iOS devices (Safari 13+)
-            if (typeof window !== 'undefined' &&
+            if (
+                typeof window !== "undefined" &&
                 window.DeviceOrientationEvent &&
-                'requestPermission' in DeviceOrientationEvent) {
+                "requestPermission" in DeviceOrientationEvent
+            ) {
                 try {
-                    // Use proper type casting for iOS-specific method
-                    const requestPermission = (DeviceOrientationEvent as unknown as DeviceOrientationEventiOS).requestPermission;
+                    const requestPermission = (DeviceOrientationEvent as unknown as DeviceOrientationEventiOS)
+                        .requestPermission;
                     const permission = await requestPermission();
                     permissionGranted = permission === "granted";
                     setGyroscopePermission(permissionGranted);
@@ -261,14 +280,13 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
                 return false;
             }
 
-            // Set up orientation handling
             const handleOrientation = (event: DeviceOrientationEvent): void => {
                 if (event.alpha === null || event.beta === null || event.gamma === null) {
                     return;
                 }
 
                 const alpha = THREE.MathUtils.degToRad(event.alpha || 0); // Z-axis (yaw)
-                const beta = THREE.MathUtils.degToRad(event.beta || 0);   // X-axis (pitch)
+                const beta = THREE.MathUtils.degToRad(event.beta || 0); // X-axis (pitch)
                 const gamma = THREE.MathUtils.degToRad(event.gamma || 0); // Y-axis (roll)
 
                 const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ");
@@ -278,7 +296,6 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
             window.addEventListener("deviceorientation", handleOrientation, true);
             setGyroscopePermission(true);
 
-            // Store cleanup function
             cleanupRef.current = () => {
                 window.removeEventListener("deviceorientation", handleOrientation, true);
             };
@@ -291,43 +308,37 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
         }
     };
 
-    // Define custom WebXR session interface
     interface CustomXRSession {
         end: () => Promise<void>;
         addEventListener: (event: string, callback: () => void) => void;
     }
 
-    // Initialize VR session
     const initVRSession = async (): Promise<boolean> => {
-        if (!('xr' in navigator)) return false;
+        if (!("xr" in navigator)) return false;
 
         try {
             const navigator_xr = navigator as Navigator & {
                 xr: {
                     requestSession(mode: string, options?: { optionalFeatures: string[] }): Promise<CustomXRSession>;
-                }
+                };
             };
 
             const session = await navigator_xr.xr.requestSession("immersive-vr", {
-                optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                optionalFeatures: ["local-floor", "bounded-floor", "hand-tracking"],
             });
 
-            // Using type assertion for THREE.js compatibility
             const renderer = gl as unknown as THREE.WebGLRenderer;
 
             if (renderer.xr) {
                 renderer.xr.enabled = true;
 
-                // Set up animation loop
                 renderer.setAnimationLoop(() => {
                     renderer.render(scene, camera);
                 });
 
-                // Using type assertion to avoid TypeScript errors
                 await renderer.xr.setSession(session as unknown as never);
                 console.log("VR session started successfully");
 
-                // Handle session end
                 session.addEventListener("end", () => {
                     console.log("VR session ended");
                     renderer.xr.enabled = false;
@@ -335,7 +346,6 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
                     onExit();
                 });
 
-                // Store cleanup function
                 cleanupRef.current = () => {
                     try {
                         session.end().catch(console.error);
@@ -361,27 +371,21 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
             hasInitialized = true;
 
             if (deviceType === "vr" && isVRSupported) {
-                // Try to initialize VR
                 const vrStarted = await initVRSession();
                 if (!vrStarted) {
                     console.warn("Failed to start VR session, falling back to desktop mode");
                     initializeControls();
                 }
             } else if (deviceType === "mobile") {
-                // Try to use device orientation (gyroscope)
                 const gyroEnabled = await setupDeviceOrientation();
-
-                // If gyroscope setup failed or permission denied, fall back to OrbitControls
                 if (!gyroEnabled) {
                     initializeControls();
                 }
             } else {
-                // Desktop: Use OrbitControls
                 initializeControls();
             }
         };
 
-        // Initialize orbit controls for desktop/fallback
         const initializeControls = (): void => {
             if (controlsRef.current) {
                 controlsRef.current.enabled = true;
@@ -395,7 +399,6 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
 
         initializeExperience();
 
-        // Cleanup function
         return () => {
             if (cleanupRef.current) {
                 cleanupRef.current();
@@ -404,14 +407,21 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
         };
     }, [deviceType, isVRSupported, gl, onExit, camera, scene]);
 
-    // Message to show based on device and permissions
-    const getInstructionMessage = (): string => {
-        if (deviceType === "vr") {
-            return "Use controllers or gaze to look around";
-        } else if (deviceType === "mobile") {
-            return gyroscopePermission ? "Tilt your device to look around" : "Swipe to look around";
+    // const getInstructionMessage = (): string => {
+    //     if (deviceType === "vr") {
+    //         return "Use controllers or gaze to look around";
+    //     } else if (deviceType === "mobile") {
+    //         return gyroscopePermission ? "Tilt your device to look around" : "Swipe to look around";
+    //     } else {
+    //         return "Click and drag to look around";
+    //     }
+    // };
+
+    const handleVRButtonClick = (href: string, external?: boolean) => {
+        if (external) {
+            window.open(href, "_blank");
         } else {
-            return "Click and drag to look around";
+            window.location.href = href;
         }
     };
 
@@ -419,6 +429,7 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
         <>
             <PerspectiveCamera makeDefault position={[0, 0, 0.1]} fov={90} />
             <ambientLight intensity={1} />
+
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]}>
                 <meshBasicMaterial
                     map={texture || null}
@@ -427,29 +438,90 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
                 />
             </Sphere>
 
-            <Text
-                position={[0, 1, -5]}
-                fontSize={0.5}
-                color="white"
-                anchorX="center"
-                anchorY="middle"
-                font="/fonts/LeagueSpartan-Bold.ttf"
-            >
-                Welcome to Christ University VR
-            </Text>
+            <group position={[0, 0, -5]} scale={[1, 1, 1]}>
+                <mesh position={[0, 0, -0.1]}>
+                    <planeGeometry args={[6, 8]} />
+                    <meshBasicMaterial color="#000000" opacity={0.8} transparent />
+                </mesh>
 
-            <Text
-                position={[0, 0.5, -5]}
-                fontSize={0.3}
-                color="white"
-                anchorX="center"
-                anchorY="middle"
-                font="/fonts/LeagueSpartan-Bold.ttf"
-            >
-                {getInstructionMessage()}
-            </Text>
+                <mesh position={[0, 3, 0]}>
+                    <planeGeometry args={[2, 2]} />
+                    <meshBasicMaterial map={logoTexture} transparent />
+                </mesh>
 
-            {/* Always include OrbitControls for desktop and as fallback for mobile when gyroscope isn't available */}
+                <Text
+                    position={[0, 1.8, 0]}
+                    fontSize={0.3}
+                    color="white"
+                    anchorX="center"
+                    anchorY="middle"
+                    font="/fonts/LeagueSpartan-Bold.ttf"
+                    maxWidth={5}
+                >
+                    Christ University (Central Campus)
+                </Text>
+
+                <Text
+                    position={[0, 1.2, 0]}
+                    fontSize={0.25}
+                    color="white"
+                    anchorX="center"
+                    anchorY="middle"
+                    font="/fonts/LeagueSpartan-Bold.ttf"
+                >
+                    VR Experience
+                </Text>
+
+                <group position={[0, -0.5, 0]}>
+                    {buttons.map((button, index) => (
+                        <group
+                            key={index}
+                            position={[0, -index * 0.7, 0]}
+                            onClick={() => handleVRButtonClick(button.href, button.external)}
+                        >
+                            <mesh>
+                                <planeGeometry args={[4, 0.6]} />
+                                <meshBasicMaterial color="#1a365d" />
+                            </mesh>
+
+                            <Text
+                                position={[0, 0, 0.1]}
+                                fontSize={0.2}
+                                color="white"
+                                anchorX="center"
+                                anchorY="middle"
+                                font="/fonts/LeagueSpartan-Bold.ttf"
+                            >
+                                {button.text}
+                            </Text>
+                        </group>
+                    ))}
+                </group>
+
+                <group position={[0, -3.5, 0]}>
+                    <Text
+                        position={[0, 0.3, 0]}
+                        fontSize={0.15}
+                        color="white"
+                        anchorX="center"
+                        anchorY="middle"
+                        font="/fonts/LeagueSpartan-Bold.ttf"
+                    >
+                        Guided by Dr. Suresh K
+                    </Text>
+                    <Text
+                        position={[0, 0, 0]}
+                        fontSize={0.15}
+                        color="white"
+                        anchorX="center"
+                        anchorY="middle"
+                        font="/fonts/LeagueSpartan-Bold.ttf"
+                    >
+                        Directed by Dr. Ashok Immanuel V
+                    </Text>
+                </group>
+            </group>
+
             {(deviceType === "desktop" || (deviceType === "mobile" && gyroscopePermission === false)) && (
                 <OrbitControls
                     ref={controlsRef}
@@ -468,3 +540,5 @@ function VRContent({ onExit, isVRSupported, deviceType }: VRContentProps) {
         </>
     );
 }
+
+export default Home;
