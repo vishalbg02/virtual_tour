@@ -293,7 +293,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     // Calculate content position based on device type
     const contentPosition: [number, number, number] =
         deviceType === "vr"
-            ? [0, 0, -3] // Closer in VR
+            ? [0, 0, -2] // Closer in VR (changed from -3 to -2)
             : [0, 0, -8] // Further in desktop/mobile
 
     return (
@@ -312,45 +312,17 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             <DebugBox position={[0, 0, -4]} />
             <DebugBox position={[0, 0, -5]} />
 
-            {/* Render content with proper positioning */}
-            <mesh position={contentPosition}>
-                <Html
-                    transform
-                    occlude={false} // Disable occlusion for better visibility
-                    distanceFactor={deviceType === "vr" ? 1 : 10}
-                    zIndexRange={[100, 0]}
-                    style={{
-                        width: deviceType === "vr" ? "1200px" : "600px",
-                        height: "auto",
-                        pointerEvents: "auto",
-                    }}
-                >
-                    <div
-                        style={{
-                            width: "100%",
-                            background: "white", // Solid white for maximum visibility
-                            padding: "30px",
-                            borderRadius: "15px",
-                            boxShadow: "0 0 30px rgba(0, 0, 0, 0.5)",
-                            border: "5px solid red", // Very visible border
-                        }}
-                    >
-                        {children}
-                    </div>
-                </Html>
-            </mesh>
-
-            {/* Fallback content for VR mode */}
-            {deviceType === "vr" && (
-                <mesh position={[0, 0, -3]}>
-                    <planeGeometry args={[4, 3]} />
-                    <meshBasicMaterial color="white" />
+            {/* Main content for desktop and mobile */}
+            {deviceType !== "vr" && (
+                <mesh position={contentPosition}>
                     <Html
                         transform
                         occlude={false}
-                        position={[0, 0, 0.1]}
+                        distanceFactor={10}
+                        zIndexRange={[100, 0]}
                         style={{
-                            width: "800px",
+                            width: "600px",
+                            height: "auto",
                             pointerEvents: "auto",
                         }}
                     >
@@ -358,9 +330,9 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                             style={{
                                 width: "100%",
                                 background: "white",
-                                padding: "20px",
-                                borderRadius: "10px",
-                                border: "5px solid red",
+                                padding: "30px",
+                                borderRadius: "15px",
+                                boxShadow: "0 0 30px rgba(0, 0, 0, 0.5)",
                             }}
                         >
                             {children}
@@ -369,8 +341,46 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 </mesh>
             )}
 
-            {(deviceType === "vr" || deviceType === "mobile") && (
+            {/* Dedicated VR content with optimized positioning and scale */}
+            {deviceType === "vr" && (
                 <group position={[0, 0, -2]}>
+                    {/* Background plane for better visibility */}
+                    <mesh>
+                        <planeGeometry args={[3, 2.5]} />
+                        <meshBasicMaterial color="white" />
+                    </mesh>
+
+                    {/* Content container with proper scale for VR */}
+                    <Html
+                        transform
+                        occlude={false}
+                        position={[0, 0, 0.01]} // Slightly in front of the plane
+                        distanceFactor={1}
+                        zIndexRange={[100, 0]}
+                        style={{
+                            width: "800px", // Wider for better readability in VR
+                            height: "auto",
+                            pointerEvents: "auto",
+                            transform: "scale(1)", // Ensure proper scaling
+                        }}
+                    >
+                        <div
+                            style={{
+                                width: "100%",
+                                background: "white",
+                                padding: "20px",
+                                borderRadius: "10px",
+                                boxShadow: "0 0 20px rgba(0, 0, 0, 0.5)",
+                            }}
+                        >
+                            {children}
+                        </div>
+                    </Html>
+                </group>
+            )}
+
+            {(deviceType === "vr" || deviceType === "mobile") && (
+                <group position={[0, 0, -1.5]}>
                     <GazePointer active={gazeTarget !== null} />
                 </group>
             )}
