@@ -74,12 +74,12 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     });
     const { camera, gl, scene } = useThree();
     const controlsRef = useRef<OrbitControlsImpl | null>(null);
-    const cleanupRef = useRef<(() => void) | null>(null);
-    const sessionRef = useRef<XRSession | null>(null); // Track active XR session
+    const sessionRef = useRef<XRSession | null>(null);
     const [gazeTarget, setGazeTarget] = useState<number | null>(null);
     const gazeTimerRef = useRef<number>(0);
     const gazeThreshold = 4;
     const { size } = useThree();
+    const isMounted = useRef(false);
 
     useEffect(() => {
         if (deviceType === "mobile" || deviceType === "vr") {
@@ -98,7 +98,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                     const vector = new THREE.Vector3(
                         ((rect.left + rect.width / 2) / size.width) * 2 - 1,
                         -((rect.top + rect.height / 2) / size.height) * 2 + 1,
-                        -8.5 // Match Home.tsx position
+                        -8.5
                     );
                     vector.unproject(camera);
                     const dir = vector.sub(camera.position).normalize();
@@ -128,6 +128,10 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 gazeTimerRef.current = 0;
             }
         }
+        // Ensure VR rendering happens within useFrame
+        if (deviceType === "vr" && sessionRef.current) {
+            gl.render(scene, camera);
+        }
     });
 
     const setupDeviceOrientation = async () => {
@@ -149,12 +153,11 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                         camera.quaternion.setFromEuler(euler);
                     };
                     window.addEventListener("deviceorientation", handleOrientation, true);
-                    cleanupRef.current = () => window.removeEventListener("deviceorientation", handleOrientation, true);
-                    return true;
+                    return () => window.removeEventListener("deviceorientation", handleOrientation, true);
                 }
             } catch (error) {
                 console.error("Device orientation permission error:", error);
-                return false;
+                return null;
             }
         } else if (deviceOrientationEvent) {
             const handleOrientation = (event: DeviceOrientationEvent) => {
@@ -165,10 +168,9 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 camera.quaternion.setFromEuler(euler);
             };
             window.addEventListener("deviceorientation", handleOrientation, true);
-            cleanupRef.current = () => window.removeEventListener("deviceorientation", handleOrientation, true);
-            return true;
+            return () => window.removeEventListener("deviceorientation", handleOrientation, true);
         }
-        return false;
+        return null;
     };
 
     const initVRSession = async () => {
@@ -191,23 +193,16 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 });
                 sessionRef.current = session;
                 gl.xr.enabled = true;
-                gl.setAnimationLoop(() => { // Removed unused 'time' parameter
-                    gl.render(scene, camera);
-                });
                 await gl.xr.setSession(session);
                 console.log("VR session started successfully.");
 
                 session.addEventListener("end", () => {
                     gl.xr.enabled = false;
-                    gl.setAnimationLoop(null);
                     sessionRef.current = null;
                     onExit();
                     console.log("VR session ended.");
                 });
-                cleanupRef.current = () => {
-                    session.end();
-                    sessionRef.current = null;
-                };
+
                 return true;
             } catch (error) {
                 console.error("VR session error:", error);
@@ -221,6 +216,11 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     };
 
     useEffect(() => {
+        if (isMounted.current) return; // Prevent multiple initializations
+        isMounted.current = true;
+
+        let cleanup: (() => void) | null = null;
+
         const initialize = async () => {
             console.log("Initializing VRContent for deviceType:", deviceType);
             if (deviceType === "vr" && isVRSupported) {
@@ -230,8 +230,8 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                     console.log("VR failed, falling back to OrbitControls.");
                 }
             } else if (deviceType === "mobile") {
-                const gyroEnabled = await setupDeviceOrientation();
-                if (!gyroEnabled && controlsRef.current) {
+                cleanup = await setupDeviceOrientation();
+                if (!cleanup && controlsRef.current) {
                     controlsRef.current.enabled = true;
                     console.log("Gyro failed, falling back to OrbitControls.");
                 }
@@ -242,12 +242,17 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 console.log("Desktop mode with OrbitControls.");
             }
         };
+
         initialize();
+
         return () => {
-            if (cleanupRef.current) {
-                cleanupRef.current();
-                console.log("Cleanup executed.");
+            if (sessionRef.current) {
+                sessionRef.current.end().catch((err) => console.error("Error ending XR session:", err));
+                sessionRef.current = null;
             }
+            if (cleanup) cleanup();
+            console.log("Cleanup executed.");
+            isMounted.current = false;
         };
     }, [deviceType, isVRSupported, onExit, camera, scene, gl]);
 
@@ -261,7 +266,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             </Sphere>
             <group position={[0, 0, -8.5]}>
                 <Html center>
-                    <div style={{ width: "600px", transform: "scale(0.8)" }}>
+                    <div style={{ width: "600px", transform: "scale(0.8)", color: "white", background: "rgba(0, 0, 0, 0.5)", padding: "10px" }}>
                         {children}
                     </div>
                 </Html>
