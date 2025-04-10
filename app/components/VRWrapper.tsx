@@ -75,6 +75,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     const { camera, gl, scene } = useThree();
     const controlsRef = useRef<OrbitControlsImpl | null>(null);
     const cleanupRef = useRef<(() => void) | null>(null);
+    const sessionRef = useRef<XRSession | null>(null); // Track active XR session
     const [gazeTarget, setGazeTarget] = useState<number | null>(null);
     const gazeTimerRef = useRef<number>(0);
     const gazeThreshold = 4;
@@ -171,30 +172,50 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     };
 
     const initVRSession = async () => {
-        if ("xr" in navigator) {
+        if ("xr" in navigator && !sessionRef.current) {
             const xr = navigator as Navigator & {
                 xr: {
                     requestSession: (mode: string, options?: { optionalFeatures: string[] }) => Promise<XRSession>;
+                    isSessionSupported: (mode: string) => Promise<boolean>;
                 };
             };
             try {
+                const isSupported = await xr.xr.isSessionSupported("immersive-vr");
+                if (!isSupported) {
+                    console.warn("Immersive VR not supported on this device.");
+                    return false;
+                }
+
                 const session = await xr.xr.requestSession("immersive-vr", {
                     optionalFeatures: ["local-floor", "bounded-floor"],
                 });
+                sessionRef.current = session;
                 gl.xr.enabled = true;
-                gl.setAnimationLoop(() => gl.render(scene, camera));
+                gl.setAnimationLoop(() => { // Removed unused 'time' parameter
+                    gl.render(scene, camera);
+                });
                 await gl.xr.setSession(session);
+                console.log("VR session started successfully.");
+
                 session.addEventListener("end", () => {
                     gl.xr.enabled = false;
                     gl.setAnimationLoop(null);
+                    sessionRef.current = null;
                     onExit();
+                    console.log("VR session ended.");
                 });
-                cleanupRef.current = () => session.end();
+                cleanupRef.current = () => {
+                    session.end();
+                    sessionRef.current = null;
+                };
                 return true;
             } catch (error) {
                 console.error("VR session error:", error);
                 return false;
             }
+        } else if (sessionRef.current) {
+            console.warn("VR session already active.");
+            return true;
         }
         return false;
     };
@@ -204,18 +225,30 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             console.log("Initializing VRContent for deviceType:", deviceType);
             if (deviceType === "vr" && isVRSupported) {
                 const vrStarted = await initVRSession();
-                if (!vrStarted && controlsRef.current) controlsRef.current.enabled = true;
+                if (!vrStarted && controlsRef.current) {
+                    controlsRef.current.enabled = true;
+                    console.log("VR failed, falling back to OrbitControls.");
+                }
             } else if (deviceType === "mobile") {
                 const gyroEnabled = await setupDeviceOrientation();
-                if (!gyroEnabled && controlsRef.current) controlsRef.current.enabled = true;
+                if (!gyroEnabled && controlsRef.current) {
+                    controlsRef.current.enabled = true;
+                    console.log("Gyro failed, falling back to OrbitControls.");
+                }
             } else if (controlsRef.current) {
                 controlsRef.current.enabled = true;
                 controlsRef.current.enableDamping = true;
                 controlsRef.current.dampingFactor = 0.05;
+                console.log("Desktop mode with OrbitControls.");
             }
         };
         initialize();
-        return () => cleanupRef.current?.();
+        return () => {
+            if (cleanupRef.current) {
+                cleanupRef.current();
+                console.log("Cleanup executed.");
+            }
+        };
     }, [deviceType, isVRSupported, onExit, camera, scene, gl]);
 
     return (
@@ -227,9 +260,9 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 <meshBasicMaterial map={texture || null} color={texture ? undefined : "gray"} side={THREE.BackSide} />
             </Sphere>
             <group position={[0, 0, -8.5]}>
-                <Html transform occlude center>
+                <Html center>
                     <div style={{ width: "600px", transform: "scale(0.8)" }}>
-                        {children} {/* Render children in all modes */}
+                        {children}
                     </div>
                 </Html>
             </group>
