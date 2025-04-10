@@ -67,7 +67,9 @@ function GazePointer({ active }: { active: boolean }) {
 }
 
 function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
-    const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg");
+    const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg", undefined, (err) => {
+        console.error("Texture loading error:", err);
+    });
     const { camera, gl, scene } = useThree();
     const controlsRef = useRef<OrbitControlsImpl | null>(null);
     const cleanupRef = useRef<(() => void) | null>(null);
@@ -75,6 +77,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     const gazeTimerRef = useRef<number>(0);
     const gazeThreshold = 4;
     const { size } = useThree(); // Gets the actual canvas size
+
     useEffect(() => {
         if (deviceType === "mobile" || deviceType === "vr") {
             setGazeTarget(0);
@@ -210,7 +213,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
             </Sphere>
-            <group position={[0, 0, -8]}>
+            <group position={[0, 0, -8.5]}>
                 <Html transform occlude center>
                     <div style={{ width: "600px", transform: "scale(0.8)" }}>
                         {deviceType === "mobile" ? (
