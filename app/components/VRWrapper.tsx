@@ -83,7 +83,6 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
 
     useFrame((state, delta) => {
         if (deviceType === "vr" || deviceType === "mobile") {
-
             const raycaster = new THREE.Raycaster();
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
             const intersects = buttonRefs.current
@@ -213,7 +212,26 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             </Sphere>
             <group position={[0, 0, -8]}>
                 <Html transform occlude center>
-                    <div style={{ width: "600px", transform: "scale(0.8)" }}>{children}</div>
+                    <div style={{ width: "600px", transform: "scale(0.8)" }}>
+                        {deviceType === "mobile" ? (
+                            <div
+                                style={{
+                                    background: "rgba(255, 255, 255, 0.9)",
+                                    padding: "20px",
+                                    borderRadius: "10px",
+                                    textAlign: "center",
+                                    color: "#000",
+                                    fontFamily: "sans-serif",
+                                    fontSize: "24px",
+                                    fontWeight: "bold",
+                                }}
+                            >
+                                Welcome to the Virtual Tour of Christ University
+                            </div>
+                        ) : (
+                            children
+                        )}
+                    </div>
                 </Html>
             </group>
             {(deviceType === "vr" || deviceType === "mobile") && (
