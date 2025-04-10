@@ -67,6 +67,9 @@ function GazePointer({ active }: { active: boolean }) {
 }
 
 function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
+    // Debug log to confirm component rendering
+    console.log("VRContent rendering with deviceType:", deviceType);
+
     const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg", undefined, (err) => {
         console.error("Texture loading error:", err);
     });
@@ -76,7 +79,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     const [gazeTarget, setGazeTarget] = useState<number | null>(null);
     const gazeTimerRef = useRef<number>(0);
     const gazeThreshold = 4;
-    const { size } = useThree(); // Gets the actual canvas size
+    const { size } = useThree();
 
     useEffect(() => {
         if (deviceType === "mobile" || deviceType === "vr") {
@@ -95,7 +98,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                     const vector = new THREE.Vector3(
                         ((rect.left + rect.width / 2) / size.width) * 2 - 1,
                         -((rect.top + rect.height / 2) / size.height) * 2 + 1,
-                        -8
+                        -8.5 // Match Home.tsx position
                     );
                     vector.unproject(camera);
                     const dir = vector.sub(camera.position).normalize();
@@ -135,18 +138,23 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             : null;
 
         if (deviceOrientationEvent?.requestPermission) {
-            const permission = await deviceOrientationEvent.requestPermission();
-            if (permission === "granted") {
-                const handleOrientation = (event: DeviceOrientationEvent) => {
-                    const alpha = THREE.MathUtils.degToRad(event.alpha || 0);
-                    const beta = THREE.MathUtils.degToRad(event.beta || 0);
-                    const gamma = THREE.MathUtils.degToRad(event.gamma || 0);
-                    const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ");
-                    camera.quaternion.setFromEuler(euler);
-                };
-                window.addEventListener("deviceorientation", handleOrientation, true);
-                cleanupRef.current = () => window.removeEventListener("deviceorientation", handleOrientation, true);
-                return true;
+            try {
+                const permission = await deviceOrientationEvent.requestPermission();
+                if (permission === "granted") {
+                    const handleOrientation = (event: DeviceOrientationEvent) => {
+                        const alpha = THREE.MathUtils.degToRad(event.alpha || 0);
+                        const beta = THREE.MathUtils.degToRad(event.beta || 0);
+                        const gamma = THREE.MathUtils.degToRad(event.gamma || 0);
+                        const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ");
+                        camera.quaternion.setFromEuler(euler);
+                    };
+                    window.addEventListener("deviceorientation", handleOrientation, true);
+                    cleanupRef.current = () => window.removeEventListener("deviceorientation", handleOrientation, true);
+                    return true;
+                }
+            } catch (error) {
+                console.error("Device orientation permission error:", error);
+                return false;
             }
         } else if (deviceOrientationEvent) {
             const handleOrientation = (event: DeviceOrientationEvent) => {
@@ -170,25 +178,31 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                     requestSession: (mode: string, options?: { optionalFeatures: string[] }) => Promise<XRSession>;
                 };
             };
-            const session = await xr.xr.requestSession("immersive-vr", {
-                optionalFeatures: ["local-floor", "bounded-floor"],
-            });
-            gl.xr.enabled = true;
-            gl.setAnimationLoop(() => gl.render(scene, camera));
-            await gl.xr.setSession(session);
-            session.addEventListener("end", () => {
-                gl.xr.enabled = false;
-                gl.setAnimationLoop(null);
-                onExit();
-            });
-            cleanupRef.current = () => session.end();
-            return true;
+            try {
+                const session = await xr.xr.requestSession("immersive-vr", {
+                    optionalFeatures: ["local-floor", "bounded-floor"],
+                });
+                gl.xr.enabled = true;
+                gl.setAnimationLoop(() => gl.render(scene, camera));
+                await gl.xr.setSession(session);
+                session.addEventListener("end", () => {
+                    gl.xr.enabled = false;
+                    gl.setAnimationLoop(null);
+                    onExit();
+                });
+                cleanupRef.current = () => session.end();
+                return true;
+            } catch (error) {
+                console.error("VR session error:", error);
+                return false;
+            }
         }
         return false;
     };
 
     useEffect(() => {
         const initialize = async () => {
+            console.log("Initializing VRContent for deviceType:", deviceType);
             if (deviceType === "vr" && isVRSupported) {
                 const vrStarted = await initVRSession();
                 if (!vrStarted && controlsRef.current) controlsRef.current.enabled = true;
@@ -211,7 +225,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             <ambientLight intensity={1} />
             <pointLight position={[0, 2, 2]} intensity={2} distance={10} />
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
-                <meshBasicMaterial map={texture} side={THREE.BackSide} />
+                <meshBasicMaterial map={texture || null} color={texture ? undefined : "gray"} side={THREE.BackSide} />
             </Sphere>
             <group position={[0, 0, -8.5]}>
                 <Html transform occlude center>
@@ -260,6 +274,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
 }
 
 export default function VRWrapper({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
+    console.log("VRWrapper rendering with deviceType:", deviceType);
     return (
         <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
             <Canvas gl={{ antialias: true, alpha: false }}>
