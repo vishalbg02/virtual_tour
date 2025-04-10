@@ -82,6 +82,118 @@ function DebugBox({ position }: { position: [number, number, number] }) {
     )
 }
 
+// Create a component to render HTML content as a texture on a plane
+function HTMLPlane({
+                       children,
+                       position,
+                       width = 4,
+                       height = 3,
+                       deviceType,
+                   }: {
+    children: React.ReactNode
+    position: [number, number, number]
+    width?: number
+    height?: number
+    deviceType: DeviceType
+}) {
+    const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null)
+    const containerRef = useRef<HTMLDivElement>(null)
+    const {  } = useThree()
+
+    useEffect(() => {
+        if (!containerRef.current) return
+
+        // Create a function to render HTML to canvas
+        const renderHTMLToCanvas = () => {
+            if (!containerRef.current) return
+
+            // Use html2canvas or a similar approach
+            const tempCanvas = document.createElement("canvas")
+            const ctx = tempCanvas.getContext("2d")
+            if (!ctx) return
+
+            // Set canvas size - make it larger for better quality
+            const scale = 2
+            tempCanvas.width = containerRef.current.offsetWidth * scale
+            tempCanvas.height = containerRef.current.offsetHeight * scale
+
+            // Draw white background
+            ctx.fillStyle = "white"
+            ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height)
+
+            // Use foreignObject to render HTML
+            const data = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${tempCanvas.width}" height="${tempCanvas.height}">
+          <foreignObject width="100%" height="100%">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%;">
+              ${containerRef.current.outerHTML}
+            </div>
+          </foreignObject>
+        </svg>
+      `
+
+            const img = new Image()
+            img.crossOrigin = "anonymous"
+
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0)
+                const newTexture = new THREE.CanvasTexture(tempCanvas)
+                newTexture.needsUpdate = true
+                setTexture(newTexture)
+            }
+
+            img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(data)
+        }
+
+        // Initial render
+        renderHTMLToCanvas()
+
+        // Re-render when window is resized
+        window.addEventListener("resize", renderHTMLToCanvas)
+
+        return () => {
+            window.removeEventListener("resize", renderHTMLToCanvas)
+        }
+    }, [children])
+
+    // Render the HTML content in a hidden div for capturing
+    return (
+        <>
+            <div
+                ref={containerRef}
+                style={{
+                    position: "absolute",
+                    left: "-9999px",
+                    width: deviceType === "vr" ? "800px" : "600px",
+                    background: "white",
+                    padding: "30px",
+                    borderRadius: "15px",
+                    boxShadow: "0 0 30px rgba(0, 0, 0, 0.5)",
+                    zIndex: -1,
+                    visibility: "hidden",
+                }}
+            >
+                {children}
+            </div>
+
+            {texture && (
+                <mesh position={position}>
+                    <planeGeometry args={[width, height]} />
+                    <meshBasicMaterial map={texture} transparent={true} />
+                </mesh>
+            )}
+
+            {/* Fallback white plane while texture is loading */}
+            {!texture && (
+                <mesh position={position}>
+                    <planeGeometry args={[width, height]} />
+                    <meshBasicMaterial color="white" />
+                </mesh>
+            )}
+        </>
+    )
+}
+
 function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
     // Use a smaller texture size to avoid WebGL warnings
     const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg", (loader) => {
@@ -293,7 +405,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     // Calculate content position based on device type
     const contentPosition: [number, number, number] =
         deviceType === "vr"
-            ? [0, 0, -2] // Closer in VR (changed from -3 to -2)
+            ? [0, 0, -2] // Closer in VR
             : [0, 0, -8] // Further in desktop/mobile
 
     return (
@@ -312,7 +424,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             <DebugBox position={[0, 0, -4]} />
             <DebugBox position={[0, 0, -5]} />
 
-            {/* Main content for desktop and mobile */}
+            {/* For desktop and mobile, use regular Html component */}
             {deviceType !== "vr" && (
                 <mesh position={contentPosition}>
                     <Html
@@ -341,42 +453,11 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 </mesh>
             )}
 
-            {/* Dedicated VR content with optimized positioning and scale */}
+            {/* For VR, use the HTMLPlane component that renders HTML to a texture */}
             {deviceType === "vr" && (
-                <group position={[0, 0, -2]}>
-                    {/* Background plane for better visibility */}
-                    <mesh>
-                        <planeGeometry args={[3, 2.5]} />
-                        <meshBasicMaterial color="white" />
-                    </mesh>
-
-                    {/* Content container with proper scale for VR */}
-                    <Html
-                        transform
-                        occlude={false}
-                        position={[0, 0, 0.01]} // Slightly in front of the plane
-                        distanceFactor={1}
-                        zIndexRange={[100, 0]}
-                        style={{
-                            width: "800px", // Wider for better readability in VR
-                            height: "auto",
-                            pointerEvents: "auto",
-                            transform: "scale(1)", // Ensure proper scaling
-                        }}
-                    >
-                        <div
-                            style={{
-                                width: "100%",
-                                background: "white",
-                                padding: "20px",
-                                borderRadius: "10px",
-                                boxShadow: "0 0 20px rgba(0, 0, 0, 0.5)",
-                            }}
-                        >
-                            {children}
-                        </div>
-                    </Html>
-                </group>
+                <HTMLPlane position={[0, 0, -2]} width={4} height={3} deviceType={deviceType}>
+                    {children}
+                </HTMLPlane>
             )}
 
             {(deviceType === "vr" || deviceType === "mobile") && (

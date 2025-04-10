@@ -1,42 +1,50 @@
-"use client";
+"use client"
 
-import Image from "next/image";
-import { useState, useEffect, useRef } from "react";
-import styles from "./styles.module.css";
-import Link from "next/link";
-import VRWrapper from "./components/VRWrapper";
+import type React from "react"
+
+import Image from "next/image"
+import { useState, useEffect, useRef } from "react"
+import styles from "./styles.module.css"
+import Link from "next/link"
+import VRWrapper from "./components/VRWrapper"
 
 interface Button {
-    text: string;
-    href: string;
-    external?: boolean;
+    text: string
+    href: string
+    external?: boolean
 }
 
-type DeviceType = "desktop" | "mobile" | "vr";
+type DeviceType = "desktop" | "mobile" | "vr"
 
 function CardUI({
                     activeButton,
                     setActiveButton,
                     buttonRefs,
                 }: {
-    activeButton: string | null;
-    setActiveButton: (button: string | null) => void;
-    buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>;
+    activeButton: string | null
+    setActiveButton: (button: string | null) => void
+    buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>
 }) {
-    const handleButtonHover = (button: string) => setActiveButton(button);
-    const handleButtonLeave = () => setActiveButton(null);
+    const handleButtonHover = (button: string) => setActiveButton(button)
+    const handleButtonLeave = () => setActiveButton(null)
 
     const buttons: Button[] = [
         { text: "Enter VR Tour", href: "https://app.seekbeak.com/v/YbjNDVVm1A7", external: true },
         { text: "Meet The Team", href: "/meet_the_team" },
         { text: "About The Project", href: "/about" },
         { text: "Credits", href: "/credits" },
-    ];
+    ]
 
     return (
         <div className={styles.card}>
             <div className={styles.logoContainer}>
-                <Image src="/images/christ-logo.png" alt="Christ University Logo" width={150} height={150} className={styles.logo} />
+                <Image
+                    src="/images/christ-logo.png"
+                    alt="Christ University Logo"
+                    width={150}
+                    height={150}
+                    className={styles.logo}
+                />
             </div>
             <h1 className={styles.title}>Christ University (Central Campus)</h1>
             <h2 className={styles.subtitle}>VR Experience</h2>
@@ -50,7 +58,7 @@ function CardUI({
                     >
                         <button
                             ref={(el) => {
-                                buttonRefs.current[index] = el;
+                                buttonRefs.current[index] = el
                             }}
                             className={`${styles.navButton} ${activeButton === button.text ? styles.active : ""}`}
                             onMouseEnter={() => handleButtonHover(button.text)}
@@ -66,34 +74,34 @@ function CardUI({
                 <p className={styles.creditText}>Directed by Dr. Ashok Immanuel V</p>
             </div>
         </div>
-    );
+    )
 }
 
 export default function Home() {
-    const [activeButton, setActiveButton] = useState<string | null>(null);
-    const [vrSession, setVrSession] = useState<boolean>(false);
-    const [isVRSupported, setIsVRSupported] = useState<boolean>(false);
-    const [deviceType, setDeviceType] = useState<DeviceType>("desktop");
-    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+    const [activeButton, setActiveButton] = useState<string | null>(null)
+    const [vrSession, setVrSession] = useState<boolean>(false)
+    const [isVRSupported, setIsVRSupported] = useState<boolean>(false)
+    const [deviceType, setDeviceType] = useState<DeviceType>("desktop")
+    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
 
     useEffect(() => {
-        const userAgent = navigator.userAgent.toLowerCase();
-        const isMobile = /mobile|android|iphone|ipad|tablet|mobi/i.test(userAgent) || window.innerWidth < 768;
-        setDeviceType(isMobile ? "mobile" : "desktop");
-    }, []);
+        const userAgent = navigator.userAgent.toLowerCase()
+        const isMobile = /mobile|android|iphone|ipad|tablet|mobi/i.test(userAgent) || window.innerWidth < 768
+        setDeviceType(isMobile ? "mobile" : "desktop")
+    }, [])
 
     const startVRSession = async () => {
         if ("xr" in navigator) {
-            const xr = navigator as Navigator & { xr: { isSessionSupported: (mode: string) => Promise<boolean> } };
-            const isSupported = await xr.xr.isSessionSupported("immersive-vr");
-            setIsVRSupported(isSupported);
-            setDeviceType(isSupported ? "vr" : deviceType);
-            setVrSession(true);
+            const xr = navigator as Navigator & { xr: { isSessionSupported: (mode: string) => Promise<boolean> } }
+            const isSupported = await xr.xr.isSessionSupported("immersive-vr")
+            setIsVRSupported(isSupported)
+            setDeviceType(isSupported ? "vr" : deviceType)
+            setVrSession(true)
         } else {
-            setIsVRSupported(false);
-            setVrSession(true);
+            setIsVRSupported(false)
+            setVrSession(true)
         }
-    };
+    }
 
     return (
         <main className={`${styles.root} ${styles.main}`}>
@@ -142,5 +150,5 @@ export default function Home() {
                 <Image src="/images/campus-bg.jpg" alt="BlackMed Logo" width={40} height={40} />
             </div>
         </main>
-    );
+    )
 }
