@@ -74,7 +74,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     const [gazeTarget, setGazeTarget] = useState<number | null>(null);
     const gazeTimerRef = useRef<number>(0);
     const gazeThreshold = 4;
-
+    const { size } = useThree(); // Gets the actual canvas size
     useEffect(() => {
         if (deviceType === "mobile" || deviceType === "vr") {
             setGazeTarget(0);
@@ -83,6 +83,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
 
     useFrame((state, delta) => {
         if (deviceType === "vr" || deviceType === "mobile") {
+
             const raycaster = new THREE.Raycaster();
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
             const intersects = buttonRefs.current
@@ -90,8 +91,8 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                     if (!btn) return null;
                     const rect = btn.getBoundingClientRect();
                     const vector = new THREE.Vector3(
-                        ((rect.left + rect.width / 2) / window.innerWidth) * 2 - 1,
-                        -((rect.top + rect.height / 2) / window.innerHeight) * 2 + 1,
+                        ((rect.left + rect.width / 2) / size.width) * 2 - 1,
+                        -((rect.top + rect.height / 2) / size.height) * 2 + 1,
                         -8
                     );
                     vector.unproject(camera);
