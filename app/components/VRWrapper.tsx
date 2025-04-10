@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
 import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber"
-import { PerspectiveCamera, OrbitControls, Sphere, Html } from "@react-three/drei"
+import { PerspectiveCamera, OrbitControls, Sphere, Html, Box } from "@react-three/drei"
 import * as THREE from "three"
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
 
@@ -73,6 +73,15 @@ function GazePointer({ active }: { active: boolean }) {
     )
 }
 
+// Create a simple debug component to help visualize positions
+function DebugBox({ position }: { position: [number, number, number] }) {
+    return (
+        <Box position={position} args={[0.5, 0.5, 0.5]}>
+            <meshStandardMaterial color="red" />
+        </Box>
+    )
+}
+
 function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
     // Use a smaller texture size to avoid WebGL warnings
     const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg", (loader) => {
@@ -97,10 +106,16 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     const { size } = useThree() // Gets the actual canvas size
     const vrSessionRef = useRef<XRSession | null>(null)
 
+    // Create a reference to track if we're in VR mode
+    const [, setInVRMode] = useState(false)
+
     useEffect(() => {
         if (deviceType === "mobile" || deviceType === "vr") {
             setGazeTarget(0)
         }
+
+        // Set VR mode state
+        setInVRMode(deviceType === "vr")
     }, [deviceType])
 
     useFrame((state, delta) => {
@@ -266,41 +281,20 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     useEffect(() => {
         if (deviceType === "vr") {
             // Position the camera for better viewing in VR
-            camera.position.z = 2
+            camera.position.z = 0.1
+            camera.position.y = 0
+            camera.lookAt(0, 0, -1)
 
             // Force a scene update
             scene.updateMatrixWorld(true)
         }
     }, [deviceType, camera, scene])
 
-    // Create a mesh to hold the content
-    const contentMesh = (
-        <mesh position={[0, 0, -8]} scale={deviceType === "vr" ? 1.5 : 1}>
-            <Html
-                transform
-                occlude
-                distanceFactor={deviceType === "vr" ? 6 : 10}
-                position={[0, 0, 0]}
-                style={{
-                    width: deviceType === "vr" ? "1200px" : "600px",
-                    height: "auto",
-                }}
-            >
-                <div
-                    style={{
-                        width: "100%",
-                        background: "rgba(255, 255, 255, 0.95)",
-                        padding: "30px",
-                        borderRadius: "15px",
-                        boxShadow: "0 0 30px rgba(0, 0, 0, 0.3)",
-                        border: "2px solid rgba(255, 255, 255, 1)",
-                    }}
-                >
-                    {children}
-                </div>
-            </Html>
-        </mesh>
-    )
+    // Calculate content position based on device type
+    const contentPosition: [number, number, number] =
+        deviceType === "vr"
+            ? [0, 0, -3] // Closer in VR
+            : [0, 0, -8] // Further in desktop/mobile
 
     return (
         <>
@@ -311,8 +305,69 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
             </Sphere>
 
+            {/* Debug boxes to help visualize positions */}
+            <DebugBox position={[0, 0, -1]} />
+            <DebugBox position={[0, 0, -2]} />
+            <DebugBox position={[0, 0, -3]} />
+            <DebugBox position={[0, 0, -4]} />
+            <DebugBox position={[0, 0, -5]} />
+
             {/* Render content with proper positioning */}
-            {contentMesh}
+            <mesh position={contentPosition}>
+                <Html
+                    transform
+                    occlude={false} // Disable occlusion for better visibility
+                    distanceFactor={deviceType === "vr" ? 1 : 10}
+                    zIndexRange={[100, 0]}
+                    style={{
+                        width: deviceType === "vr" ? "1200px" : "600px",
+                        height: "auto",
+                        pointerEvents: "auto",
+                    }}
+                >
+                    <div
+                        style={{
+                            width: "100%",
+                            background: "white", // Solid white for maximum visibility
+                            padding: "30px",
+                            borderRadius: "15px",
+                            boxShadow: "0 0 30px rgba(0, 0, 0, 0.5)",
+                            border: "5px solid red", // Very visible border
+                        }}
+                    >
+                        {children}
+                    </div>
+                </Html>
+            </mesh>
+
+            {/* Fallback content for VR mode */}
+            {deviceType === "vr" && (
+                <mesh position={[0, 0, -3]}>
+                    <planeGeometry args={[4, 3]} />
+                    <meshBasicMaterial color="white" />
+                    <Html
+                        transform
+                        occlude={false}
+                        position={[0, 0, 0.1]}
+                        style={{
+                            width: "800px",
+                            pointerEvents: "auto",
+                        }}
+                    >
+                        <div
+                            style={{
+                                width: "100%",
+                                background: "white",
+                                padding: "20px",
+                                borderRadius: "10px",
+                                border: "5px solid red",
+                            }}
+                        >
+                            {children}
+                        </div>
+                    </Html>
+                </mesh>
+            )}
 
             {(deviceType === "vr" || deviceType === "mobile") && (
                 <group position={[0, 0, -2]}>
