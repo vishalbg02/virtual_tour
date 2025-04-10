@@ -74,7 +74,20 @@ function GazePointer({ active }: { active: boolean }) {
 }
 
 function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
-    const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg")
+    // Use a smaller texture size to avoid WebGL warnings
+    const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg", (loader) => {
+        // Set texture parameters to avoid quality issues with resizing
+        loader.setCrossOrigin("anonymous")
+    })
+
+    // Apply texture settings to prevent mipmap issues
+    useEffect(() => {
+        if (texture) {
+            texture.minFilter = THREE.LinearFilter
+            texture.generateMipmaps = false
+        }
+    }, [texture])
+
     const { camera, gl, scene } = useThree()
     const controlsRef = useRef<OrbitControlsImpl | null>(null)
     const cleanupRef = useRef<(() => void) | null>(null)
@@ -82,6 +95,8 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     const gazeTimerRef = useRef<number>(0)
     const gazeThreshold = 4
     const { size } = useThree() // Gets the actual canvas size
+    const vrSessionRef = useRef<XRSession | null>(null)
+
     useEffect(() => {
         if (deviceType === "mobile" || deviceType === "vr") {
             setGazeTarget(0)
@@ -169,25 +184,58 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     }
 
     const initVRSession = async () => {
-        if ("xr" in navigator) {
-            const xr = navigator as Navigator & {
-                xr: {
-                    requestSession: (mode: string, options?: { optionalFeatures: string[] }) => Promise<XRSession>
-                }
-            }
-            const session = await xr.xr.requestSession("immersive-vr", {
-                optionalFeatures: ["local-floor", "bounded-floor"],
-            })
-            gl.xr.enabled = true
-            gl.setAnimationLoop(() => gl.render(scene, camera))
-            await gl.xr.setSession(session)
-            session.addEventListener("end", () => {
-                gl.xr.enabled = false
-                gl.setAnimationLoop(null)
-                onExit()
-            })
-            cleanupRef.current = () => session.end()
+        // Check if we already have an active session
+        if (vrSessionRef.current) {
+            console.log("VR session already active, not creating a new one")
             return true
+        }
+
+        if ("xr" in navigator) {
+            try {
+                const xr = navigator as Navigator & {
+                    xr: {
+                        isSessionSupported: (mode: string) => Promise<boolean>
+                        requestSession: (mode: string, options?: { optionalFeatures: string[] }) => Promise<XRSession>
+                    }
+                }
+
+                // First check if session is supported
+                const isSupported = await xr.xr.isSessionSupported("immersive-vr")
+                if (!isSupported) {
+                    console.warn("VR not supported on this device")
+                    return false
+                }
+
+                const session = await xr.xr.requestSession("immersive-vr", {
+                    optionalFeatures: ["local-floor", "bounded-floor"],
+                })
+
+                vrSessionRef.current = session
+
+                gl.xr.enabled = true
+                gl.setAnimationLoop(() => gl.render(scene, camera))
+                await gl.xr.setSession(session)
+
+                session.addEventListener("end", () => {
+                    console.log("VR session ended")
+                    gl.xr.enabled = false
+                    gl.setAnimationLoop(null)
+                    vrSessionRef.current = null
+                    onExit()
+                })
+
+                cleanupRef.current = () => {
+                    if (vrSessionRef.current) {
+                        vrSessionRef.current.end()
+                        vrSessionRef.current = null
+                    }
+                }
+
+                return true
+            } catch (error) {
+                console.error("Error initializing VR session:", error)
+                return false
+            }
         }
         return false
     }
@@ -207,18 +255,52 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             }
         }
         initialize()
-        return () => cleanupRef.current?.()
+        return () => {
+            if (cleanupRef.current) {
+                cleanupRef.current()
+            }
+        }
     }, [deviceType, isVRSupported, onExit, camera, scene, gl])
 
+    // Position the camera and content for better VR viewing
     useEffect(() => {
         if (deviceType === "vr") {
-            // Position the camera slightly back for better viewing in VR
+            // Position the camera for better viewing in VR
             camera.position.z = 2
 
             // Force a scene update
             scene.updateMatrixWorld(true)
         }
     }, [deviceType, camera, scene])
+
+    // Create a mesh to hold the content
+    const contentMesh = (
+        <mesh position={[0, 0, -8]} scale={deviceType === "vr" ? 1.5 : 1}>
+            <Html
+                transform
+                occlude
+                distanceFactor={deviceType === "vr" ? 6 : 10}
+                position={[0, 0, 0]}
+                style={{
+                    width: deviceType === "vr" ? "1200px" : "600px",
+                    height: "auto",
+                }}
+            >
+                <div
+                    style={{
+                        width: "100%",
+                        background: "rgba(255, 255, 255, 0.95)",
+                        padding: "30px",
+                        borderRadius: "15px",
+                        boxShadow: "0 0 30px rgba(0, 0, 0, 0.3)",
+                        border: "2px solid rgba(255, 255, 255, 1)",
+                    }}
+                >
+                    {children}
+                </div>
+            </Html>
+        </mesh>
+    )
 
     return (
         <>
@@ -228,35 +310,10 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
             </Sphere>
-            <group position={[0, 0, -8]}>
-                <Html
-                    transform
-                    occlude
-                    center
-                    distanceFactor={10}
-                    position={[0, 0, 0]}
-                    style={{
-                        width: deviceType === "vr" ? "1200px" : "600px",
-                        height: "auto",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                    }}
-                >
-                    <div
-                        style={{
-                            width: "100%",
-                            transform: deviceType === "vr" ? "scale(1.5)" : "scale(0.8)",
-                            background: "rgba(255, 255, 255, 0.9)",
-                            padding: "20px",
-                            borderRadius: "10px",
-                            boxShadow: "0 0 20px rgba(0, 0, 0, 0.2)",
-                        }}
-                    >
-                        {children}
-                    </div>
-                </Html>
-            </group>
+
+            {/* Render content with proper positioning */}
+            {contentMesh}
+
             {(deviceType === "vr" || deviceType === "mobile") && (
                 <group position={[0, 0, -2]}>
                     <GazePointer active={gazeTarget !== null} />
@@ -282,7 +339,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
 export default function VRWrapper({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
     return (
         <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
-            <Canvas gl={{ antialias: true, alpha: false }}>
+            <Canvas gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}>
                 <VRContent onExit={onExit} isVRSupported={isVRSupported} deviceType={deviceType} buttonRefs={buttonRefs}>
                     {children}
                 </VRContent>
