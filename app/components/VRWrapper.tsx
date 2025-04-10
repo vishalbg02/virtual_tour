@@ -21,7 +21,7 @@ function GazePointer({ active }: { active: boolean }) {
 
     useFrame(() => {
         if (active && progress < 1) {
-            setProgress((prev) => Math.min(prev + 0.0025, 1)); // 4-second gaze
+            setProgress((prev) => Math.min(prev + 0.0025, 1));
         } else if (!active && progress > 0) {
             setProgress((prev) => Math.max(prev - 0.05, 0));
         }
@@ -67,7 +67,6 @@ function GazePointer({ active }: { active: boolean }) {
 }
 
 function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
-    // Debug log to confirm component rendering
     console.log("VRContent rendering with deviceType:", deviceType);
 
     const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg", undefined, (err) => {
@@ -98,7 +97,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                     const vector = new THREE.Vector3(
                         ((rect.left + rect.width / 2) / size.width) * 2 - 1,
                         -((rect.top + rect.height / 2) / size.height) * 2 + 1,
-                        -8.5 // Match Home.tsx position
+                        -8.5
                     );
                     vector.unproject(camera);
                     const dir = vector.sub(camera.position).normalize();
@@ -153,7 +152,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                     return true;
                 }
             } catch (error) {
-                console.error("Device orientation permission error:", error);
+                console.error("Device orientation error:", error);
                 return false;
             }
         } else if (deviceOrientationEvent) {
@@ -190,7 +189,9 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                     gl.setAnimationLoop(null);
                     onExit();
                 });
-                cleanupRef.current = () => session.end();
+                cleanupRef.current = () => {
+                    session.end().catch((err) => console.error("Error ending XR session:", err));
+                };
                 return true;
             } catch (error) {
                 console.error("VR session error:", error);
@@ -205,10 +206,16 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             console.log("Initializing VRContent for deviceType:", deviceType);
             if (deviceType === "vr" && isVRSupported) {
                 const vrStarted = await initVRSession();
-                if (!vrStarted && controlsRef.current) controlsRef.current.enabled = true;
+                if (!vrStarted && controlsRef.current) {
+                    console.log("VR failed, enabling controls");
+                    controlsRef.current.enabled = true;
+                }
             } else if (deviceType === "mobile") {
                 const gyroEnabled = await setupDeviceOrientation();
-                if (!gyroEnabled && controlsRef.current) controlsRef.current.enabled = true;
+                if (!gyroEnabled && controlsRef.current) {
+                    console.log("Gyro failed, enabling controls");
+                    controlsRef.current.enabled = true;
+                }
             } else if (controlsRef.current) {
                 controlsRef.current.enabled = true;
                 controlsRef.current.enableDamping = true;
@@ -216,8 +223,15 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             }
         };
         initialize();
-        return () => cleanupRef.current?.();
+        return () => {
+            if (cleanupRef.current) {
+                cleanupRef.current();
+                cleanupRef.current = null;
+            }
+        };
     }, [deviceType, isVRSupported, onExit, camera, scene, gl]);
+
+    console.log("Rendering Html content for deviceType:", deviceType);
 
     return (
         <>
@@ -230,24 +244,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             <group position={[0, 0, -8.5]}>
                 <Html transform occlude center>
                     <div style={{ width: "600px", transform: "scale(0.8)" }}>
-                        {deviceType === "mobile" ? (
-                            <div
-                                style={{
-                                    background: "rgba(255, 255, 255, 0.9)",
-                                    padding: "20px",
-                                    borderRadius: "10px",
-                                    textAlign: "center",
-                                    color: "#000",
-                                    fontFamily: "sans-serif",
-                                    fontSize: "24px",
-                                    fontWeight: "bold",
-                                }}
-                            >
-                                Welcome to the Virtual Tour of Christ University
-                            </div>
-                        ) : (
-                            children
-                        )}
+                        {children}
                     </div>
                 </Html>
             </group>
