@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber";
 import { PerspectiveCamera, OrbitControls, Sphere, Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -14,15 +14,6 @@ interface VRWrapperProps {
     isVRSupported: boolean;
     deviceType: DeviceType;
     buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>;
-}
-
-interface ErrorBoundaryProps {
-    children: React.ReactNode;
-    fallback: React.ReactNode;
-}
-
-interface ErrorBoundaryState {
-    hasError: boolean;
 }
 
 function GazePointer({ active }: { active: boolean }) {
@@ -84,9 +75,6 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     const gazeTimerRef = useRef<number>(0);
     const gazeThreshold = 4;
     const { size } = useThree(); // Gets the actual canvas size
-    const sessionRef = useRef<XRSession | null>(null);
-    const hasAttemptedVR = useRef<boolean>(false);
-
     useEffect(() => {
         if (deviceType === "mobile" || deviceType === "vr") {
             setGazeTarget(0);
@@ -95,6 +83,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
 
     useFrame((state, delta) => {
         if (deviceType === "vr" || deviceType === "mobile") {
+
             const raycaster = new THREE.Raycaster();
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
             const intersects = buttonRefs.current
@@ -173,94 +162,34 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     };
 
     const initVRSession = async () => {
-        if (hasAttemptedVR.current) return false;
-        hasAttemptedVR.current = true;
-
-        if (!("xr" in navigator)) return false;
-
-        try {
+        if ("xr" in navigator) {
             const xr = navigator as Navigator & {
                 xr: {
                     requestSession: (mode: string, options?: { optionalFeatures: string[] }) => Promise<XRSession>;
-                    isSessionSupported: (mode: string) => Promise<boolean>;
                 };
             };
-
-            // Check if VR is supported first
-            const isSupported = await xr.xr.isSessionSupported("immersive-vr");
-            if (!isSupported) {
-                console.warn("VR not supported on this device");
-                return false;
-            }
-
-            // Try to request a new session
             const session = await xr.xr.requestSession("immersive-vr", {
                 optionalFeatures: ["local-floor", "bounded-floor"],
             });
-
-            sessionRef.current = session;
             gl.xr.enabled = true;
             gl.setAnimationLoop(() => gl.render(scene, camera));
-
-            try {
-                await gl.xr.setSession(session);
-            } catch (err) {
-                console.error("Error setting XR session:", err);
-                // Try to end session and clean up
-                try {
-                    session.end();
-                } catch (endErr) {
-                    console.error("Error ending session:", endErr);
-                }
-                return false;
-            }
-
+            await gl.xr.setSession(session);
             session.addEventListener("end", () => {
                 gl.xr.enabled = false;
                 gl.setAnimationLoop(null);
-                sessionRef.current = null;
                 onExit();
             });
-
-            cleanupRef.current = () => {
-                try {
-                    if (session) {
-                        session.end();
-                    }
-                } catch (error) {
-                    console.error("Error ending XR session during cleanup:", error);
-                }
-                sessionRef.current = null;
-            };
-
+            cleanupRef.current = () => session.end();
             return true;
-        } catch (error) {
-            console.error("Error initializing VR session:", error);
-            if (controlsRef.current) controlsRef.current.enabled = true;
-            return false;
         }
+        return false;
     };
 
     useEffect(() => {
         const initialize = async () => {
-            // Clean up any existing sessions first
-            if (cleanupRef.current) {
-                cleanupRef.current();
-                cleanupRef.current = null;
-            }
-
-            hasAttemptedVR.current = false;
-
-            // Wait a bit to ensure previous session is cleared
-            if (deviceType === "vr") {
-                setTimeout(async () => {
-                    if (isVRSupported) {
-                        const vrStarted = await initVRSession();
-                        if (!vrStarted && controlsRef.current) {
-                            controlsRef.current.enabled = true;
-                        }
-                    }
-                }, 300);
+            if (deviceType === "vr" && isVRSupported) {
+                const vrStarted = await initVRSession();
+                if (!vrStarted && controlsRef.current) controlsRef.current.enabled = true;
             } else if (deviceType === "mobile") {
                 const gyroEnabled = await setupDeviceOrientation();
                 if (!gyroEnabled && controlsRef.current) controlsRef.current.enabled = true;
@@ -270,19 +199,9 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 controlsRef.current.dampingFactor = 0.05;
             }
         };
-
         initialize();
-
-        return () => {
-            if (cleanupRef.current) {
-                cleanupRef.current();
-                cleanupRef.current = null;
-            }
-        };
+        return () => cleanupRef.current?.();
     }, [deviceType, isVRSupported, onExit, camera, scene, gl]);
-
-    // Ensure we're displaying the content container at a visible distance
-    const contentDistance = -8;
 
     return (
         <>
@@ -292,18 +211,9 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
             </Sphere>
-            <group position={[0, 0, contentDistance]}>
-                <Html transform occlude center distanceFactor={1}>
-                    <div style={{
-                        width: "600px",
-                        transform: "scale(0.8)",
-                        backgroundColor: "rgba(255, 255, 255, 0.9)",
-                        padding: "20px",
-                        borderRadius: "10px",
-                        boxShadow: "0 0 20px rgba(0, 0, 0, 0.2)"
-                    }}>
-                        {children}
-                    </div>
+            <group position={[0, 0, -8]}>
+                <Html transform occlude center>
+                    <div style={{ width: "600px", transform: "scale(0.8)" }}>{children}</div>
                 </Html>
             </group>
             {(deviceType === "vr" || deviceType === "mobile") && (
@@ -328,96 +238,13 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     );
 }
 
-// Error boundary component for React
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-    constructor(props: ErrorBoundaryProps) {
-        super(props);
-        this.state = { hasError: false };
-    }
-
-    static getDerivedStateFromError(): ErrorBoundaryState {
-        return { hasError: true };
-    }
-
-    componentDidCatch(error: Error, info: React.ErrorInfo): void {
-        console.error("VR Error:", error, info);
-    }
-
-    render(): React.ReactNode {
-        if (this.state.hasError) {
-            return this.props.fallback;
-        }
-
-        return this.props.children;
-    }
-}
-
-// Fallback content when VR fails
-function FallbackContent({ onExit }: { onExit: () => void }) {
-    return (
-        <>
-            <PerspectiveCamera makeDefault position={[0, 0, 0.1]} fov={75} />
-            <ambientLight intensity={1} />
-            <group position={[0, 0, -5]}>
-                <Html center>
-                    <div style={{
-                        width: "300px",
-                        padding: "20px",
-                        backgroundColor: "white",
-                        borderRadius: "10px",
-                        textAlign: "center"
-                    }}>
-                        <h3>VR Error</h3>
-                        <p>Sorry, we encountered an error with the VR session.</p>
-                        <button
-                            onClick={onExit}
-                            style={{
-                                padding: "8px 16px",
-                                backgroundColor: "#3b82f6",
-                                color: "white",
-                                border: "none",
-                                borderRadius: "4px",
-                                cursor: "pointer"
-                            }}
-                        >
-                            Return to Normal View
-                        </button>
-                    </div>
-                </Html>
-            </group>
-        </>
-    );
-}
-
 export default function VRWrapper({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
-    // Error handling via useEffect
-    useEffect(() => {
-        const handleError = () => {
-            onExit(); // Exit VR mode if there's an error
-        };
-
-        window.addEventListener('error', handleError);
-        window.addEventListener('unhandledrejection', handleError);
-
-        return () => {
-            window.removeEventListener('error', handleError);
-            window.removeEventListener('unhandledrejection', handleError);
-        };
-    }, [onExit]);
-
     return (
         <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
-            <Canvas gl={{ antialias: true, alpha: false }} onCreated={({ gl }) => {
-                // Reset XR on Canvas creation
-                if (gl.xr) {
-                    gl.xr.enabled = false;
-                }
-            }}>
-                <ErrorBoundary fallback={<FallbackContent onExit={onExit} />}>
-                    <VRContent onExit={onExit} isVRSupported={isVRSupported} deviceType={deviceType} buttonRefs={buttonRefs}>
-                        {children}
-                    </VRContent>
-                </ErrorBoundary>
+            <Canvas gl={{ antialias: true, alpha: false }}>
+                <VRContent onExit={onExit} isVRSupported={isVRSupported} deviceType={deviceType} buttonRefs={buttonRefs}>
+                    {children}
+                </VRContent>
             </Canvas>
             <div
                 style={{
@@ -459,24 +286,6 @@ export default function VRWrapper({ children, onExit, isVRSupported, deviceType,
                     }}
                 >
                     Tilt or swipe to look around
-                </div>
-            )}
-            {deviceType === "vr" && (
-                <div
-                    style={{
-                        position: "absolute",
-                        bottom: "20px",
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        padding: "10px 20px",
-                        background: "rgba(0, 0, 0, 0.7)",
-                        color: "white",
-                        borderRadius: "20px",
-                        fontFamily: "sans-serif",
-                        zIndex: 1001,
-                    }}
-                >
-                    Use your VR controllers or gaze to interact
                 </div>
             )}
         </div>
