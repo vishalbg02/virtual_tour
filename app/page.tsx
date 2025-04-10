@@ -27,7 +27,7 @@ function CardUI({
     const handleButtonLeave = () => setActiveButton(null);
 
     const buttons: Button[] = [
-        { text: "Enter SeekBeak VR Tour", href: "https://app.seekbeak.com/v/YbjNDVVm1A7", external: true },
+        { text: "Enter VR Tour", href: "https://app.seekbeak.com/v/YbjNDVVm1A7", external: true },
         { text: "Meet The Team", href: "/meet_the_team" },
         { text: "About The Project", href: "/about" },
         { text: "Credits", href: "/credits" },
