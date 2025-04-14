@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber"
-import { PerspectiveCamera, OrbitControls, Sphere, Html, Text, Ring } from "@react-three/drei"
+import { PerspectiveCamera, OrbitControls, Sphere, Html, Text } from "@react-three/drei"
 import * as THREE from "three"
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
 import { useRouter } from "next/navigation"
@@ -25,57 +25,93 @@ interface VRWrapperProps {
     buttons: Button[]
 }
 
-function GazePointer({ active }: { active: boolean }) {
+function GazePointer({ active, progress }: { active: boolean; progress: number }) {
     const { camera, gl } = useThree()
     const groupRef = useRef<THREE.Group>(null)
     const ringRef = useRef<THREE.Mesh>(null)
     const dotRef = useRef<THREE.Mesh>(null)
-    const [progress, setProgress] = useState<number>(0)
+    const progressRingRef = useRef<THREE.Mesh>(null)
 
     useEffect(() => {
         if (groupRef.current && gl.xr.isPresenting) {
-            // Add the gaze pointer as a child of the camera to lock it to the view
             camera.add(groupRef.current)
-            // Position it directly in front of the camera (centered in view)
             groupRef.current.position.set(0, 0, -0.5) // 0.5 units in front
         }
         return () => {
-            // Remove from camera when unmounting
             if (groupRef.current && camera) {
                 camera.remove(groupRef.current)
             }
         }
     }, [camera, gl.xr.isPresenting])
 
-    useFrame((_, delta: number) => {
-        if (active) {
-            setProgress((prev) => Math.min(prev + delta / 4, 1)) // 4-second fill
-        } else {
-            setProgress((prev) => Math.max(prev - delta / 2, 0)) // Quick reset
-        }
-
-        if (ringRef.current && dotRef.current) {
-            const pulse = 1 + 0.15 * Math.sin(Date.now() * 0.003) // Smoother pulsation
+    useFrame(() => {
+        if (ringRef.current && dotRef.current && progressRingRef.current) {
+            const pulse = 1 + 0.15 * Math.sin(Date.now() * 0.003)
             ringRef.current.scale.setScalar(active ? pulse : 1)
-            dotRef.current.scale.setScalar(active ? 1 + progress * 0.5 : 1) // Dot grows
+            dotRef.current.scale.setScalar(active ? 1 + progress * 0.5 : 1)
+            // Update progress ring's shader to show filling effect
+            const material = progressRingRef.current.material as THREE.ShaderMaterial
+            material.uniforms.progress.value = progress
+            material.uniforms.active.value = active ? 1 : 0
         }
     })
 
+    // Shader for progress ring
+    const progressShader = {
+        uniforms: {
+            progress: { value: 0 },
+            active: { value: 0 },
+            color: { value: new THREE.Color("#2e3192") },
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform float progress;
+            uniform float active;
+            uniform vec3 color;
+            varying vec2 vUv;
+            void main() {
+                vec2 uv = vUv - 0.5;
+                float angle = atan(uv.y, uv.x) / (2.0 * 3.14159) + 0.25;
+                float dist = length(uv);
+                float ring = step(0.4, dist) * step(dist, 0.45);
+                float alpha = active * ring * step(angle, progress);
+                gl_FragColor = vec4(color, alpha * (0.8 + 0.2 * progress));
+            }
+        `,
+    }
+
     return (
         <group ref={groupRef}>
-            <Ring
-                ref={ringRef}
-                args={[0.06, 0.07, 32]} // Slightly larger
-                rotation={[Math.PI / 2, 0, 0]}
-            >
+            {/* Static ring */}
+            <mesh ref={ringRef}>
+                <ringGeometry args={[0.06, 0.07, 32]} />
                 <meshBasicMaterial
                     color="#2e3192"
                     transparent
-                    opacity={active ? 0.8 + 0.2 * progress : 0}
+                    opacity={active ? 0.8 : 0}
                     side={THREE.DoubleSide}
                     toneMapped={false}
                 />
-            </Ring>
+            </mesh>
+            {/* Progress ring */}
+            <mesh ref={progressRingRef}>
+                <ringGeometry args={[0.04, 0.05, 64]} />
+                <shaderMaterial
+                    uniforms={progressShader.uniforms}
+                    vertexShader={progressShader.vertexShader}
+                    fragmentShader={progressShader.fragmentShader}
+                    transparent
+                    side={THREE.DoubleSide}
+                    toneMapped={false}
+                />
+            </mesh>
+            {/* Central dot */}
             <mesh ref={dotRef}>
                 <sphereGeometry args={[active ? 0.025 : 0.02, 16, 16]} />
                 <meshBasicMaterial
@@ -256,6 +292,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs, bu
             const raycaster = new THREE.Raycaster()
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera)
 
+            // Ensure button meshes are correctly identified
             const buttonMeshes = scene.children
                 .filter((child) => child.type === "Group" && child.position.z === -2)
                 .flatMap((group) =>
@@ -263,7 +300,11 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs, bu
                 )
                 .flatMap((buttonGroup) => buttonGroup.children.filter((child) => child.name.startsWith("button-")));
 
-            console.log("Button meshes found:", buttonMeshes.length, buttonMeshes.map((m) => m.name))
+            if (buttonMeshes.length === 0) {
+                console.warn("No button meshes found in scene");
+            } else {
+                console.log("Button meshes found:", buttonMeshes.length, buttonMeshes.map((m) => m.name));
+            }
 
             const intersects = raycaster.intersectObjects(buttonMeshes, true)
 
@@ -274,26 +315,32 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs, bu
                     if (gazeTarget !== index) {
                         setGazeTarget(index)
                         gazeTimerRef.current = 0
-                        console.log("Gaze target set:", index, buttons[index].text)
+                        console.log("Gaze target set:", index, buttons[index]?.text || "Unknown");
                     } else {
                         gazeTimerRef.current += delta
-                        console.log("Gaze timer:", gazeTimerRef.current, "Target:", index)
-                        if (gazeTimerRef.current >= gazeThreshold) {
-                            console.log("Attempting to click button:", index, buttons[index])
+                        console.log("Gaze timer:", gazeTimerRef.current, "Target:", index);
+                        if (gazeTimerRef.current >= gazeThreshold && index < buttons.length) {
+                            console.log("Triggering button:", index, buttons[index]);
                             const button = buttons[index]
-                            if (button.external) {
-                                window.open(button.href, "_blank")
-                            } else {
-                                router.push(button.href)
-                            }
-                            if (buttonRefs.current[index]) {
-                                buttonRefs.current[index]?.click()
+                            try {
+                                if (button.external) {
+                                    window.open(button.href, "_blank")
+                                } else {
+                                    router.push(button.href)
+                                }
+                                if (buttonRefs.current[index]) {
+                                    buttonRefs.current[index]?.click()
+                                }
+                            } catch (error) {
+                                console.error("Error triggering button:", error)
                             }
                             gazeTimerRef.current = 0
                             setGazeTarget(null)
-                            console.log("Button clicked via gaze:", index, button.text)
+                            console.log("Button triggered via gaze:", index, button.text)
                         }
                     }
+                } else {
+                    console.warn("Invalid button index:", closest.object.name)
                 }
             } else if (gazeTarget !== null) {
                 setGazeTarget(null)
@@ -465,7 +512,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs, bu
 
             {deviceType === "vr" && <VRNativeUIPanel position={[0, 0, -2]} buttonRefs={buttonRefs} buttons={buttons} />}
 
-            {deviceType === "vr" && <GazePointer active={gazeTarget !== null} />}
+            {deviceType === "vr" && <GazePointer active={gazeTarget !== null} progress={gazeTimerRef.current / gazeThreshold} />}
 
             <OrbitControls
                 ref={controlsRef}
