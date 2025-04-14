@@ -81,7 +81,7 @@ function DebugBox({ position }: { position: [number, number, number] }) {
     )
 }
 
-// Simple VR UI component that works reliably in VR
+// Updated VR UI panel with fallback 3D UI
 function VRUIPanel({ position, children }: { position: [number, number, number]; children: React.ReactNode }) {
     return (
         <group position={position}>
@@ -91,10 +91,10 @@ function VRUIPanel({ position, children }: { position: [number, number, number];
                 <meshBasicMaterial color="white" />
             </mesh>
 
-            {/* Content */}
+            {/* HTML-based UI */}
             <Html
                 transform
-                distanceFactor={1}
+                distanceFactor={0.5} // Adjusted for VR
                 position={[0, 0, 0]}
                 style={{
                     width: "800px",
@@ -118,18 +118,24 @@ function VRUIPanel({ position, children }: { position: [number, number, number];
                     {children}
                 </div>
             </Html>
+
+            {/* Fallback 3D UI */}
+            <mesh position={[0, 0, 0]}>
+                <planeGeometry args={[3, 2]} />
+                <meshBasicMaterial color="white" />
+                <Html position={[0, 0, 0.01]}>
+                    <div style={{ color: "black" }}>{children}</div>
+                </Html>
+            </mesh>
         </group>
     )
 }
 
 function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
-    // Use a smaller texture size to avoid WebGL warnings
     const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg", (loader) => {
-        // Set texture parameters to avoid quality issues with resizing
         loader.setCrossOrigin("anonymous")
     })
 
-    // Apply texture settings to prevent mipmap issues
     useEffect(() => {
         if (texture) {
             texture.minFilter = THREE.LinearFilter
@@ -143,18 +149,15 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     const [gazeTarget, setGazeTarget] = useState<number | null>(null)
     const gazeTimerRef = useRef<number>(0)
     const gazeThreshold = 4
-    const { size } = useThree() // Gets the actual canvas size
+    const { size } = useThree()
     const vrSessionRef = useRef<XRSession | null>(null)
 
-    // Create a reference to track if we're in VR mode
     const [, setInVRMode] = useState(false)
 
     useEffect(() => {
         if (deviceType === "mobile" || deviceType === "vr") {
             setGazeTarget(0)
         }
-
-        // Set VR mode state
         setInVRMode(deviceType === "vr")
     }, [deviceType])
 
@@ -239,7 +242,6 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     }
 
     const initVRSession = async () => {
-        // Check if we already have an active session
         if (vrSessionRef.current) {
             console.log("VR session already active, not creating a new one")
             return true
@@ -250,11 +252,13 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 const xr = navigator as Navigator & {
                     xr: {
                         isSessionSupported: (mode: string) => Promise<boolean>
-                        requestSession: (mode: string, options?: { optionalFeatures: string[] }) => Promise<XRSession>
+                        requestSession: (
+                            mode: string,
+                            options?: XRSessionInit
+                        ) => Promise<XRSession>
                     }
                 }
 
-                // First check if session is supported
                 const isSupported = await xr.xr.isSessionSupported("immersive-vr")
                 if (!isSupported) {
                     console.warn("VR not supported on this device")
@@ -266,6 +270,10 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 })
 
                 vrSessionRef.current = session
+
+                // Set up the WebGL layer for the session
+                const glLayer = new XRWebGLLayer(session, gl.getContext() as WebGLRenderingContext)
+                await session.updateRenderState({ baseLayer: glLayer })
 
                 gl.xr.enabled = true
                 gl.setAnimationLoop(() => gl.render(scene, camera))
@@ -317,24 +325,17 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
         }
     }, [deviceType, isVRSupported, onExit, camera, scene, gl])
 
-    // Position the camera and content for better VR viewing
     useEffect(() => {
         if (deviceType === "vr") {
-            // Position the camera for better viewing in VR
-            camera.position.z = 0.1
-            camera.position.y = 0
+            camera.position.set(0, 0, 0.1)
             camera.lookAt(0, 0, -1)
-
-            // Force a scene update
+            camera.updateProjectionMatrix()
             scene.updateMatrixWorld(true)
         }
     }, [deviceType, camera, scene])
 
-    // Calculate content position based on device type
     const contentPosition: [number, number, number] =
-        deviceType === "vr"
-            ? [0, 0, -2] // Closer in VR
-            : [0, 0, -8] // Further in desktop/mobile
+        deviceType === "vr" ? [0, 0, -1] : [0, 0, -8] // Adjusted for VR
 
     return (
         <>
@@ -381,8 +382,8 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 </mesh>
             )}
 
-            {/* For VR, use the simplified VRUIPanel component */}
-            {deviceType === "vr" && <VRUIPanel position={[0, 0, -2]}>{children}</VRUIPanel>}
+            {/* For VR, use the updated VRUIPanel component */}
+            {deviceType === "vr" && <VRUIPanel position={[0, 0, -1]}>{children}</VRUIPanel>}
 
             {(deviceType === "vr" || deviceType === "mobile") && (
                 <group position={[0, 0, -1.5]}>
