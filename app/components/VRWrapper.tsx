@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber"
-import { PerspectiveCamera, OrbitControls, Sphere, Html, Text } from "@react-three/drei"
+import { PerspectiveCamera, OrbitControls, Sphere, Html, Text, Ring } from "@react-three/drei"
 import * as THREE from "three"
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
 
@@ -29,51 +29,34 @@ function GazePointer({ active }: { active: boolean }) {
     })
 
     return (
-        <Html center>
-            <div style={{ position: "relative", width: "50px", height: "50px", pointerEvents: "none" }}>
-                <svg
-                    width="50"
-                    height="50"
-                    viewBox="0 0 50 50"
-                    style={{
-                        position: "absolute",
-                        transform: "rotate(-90deg)",
-                        opacity: active ? 1 : 0,
-                        transition: "opacity 0.3s ease",
-                    }}
-                >
-                    <circle
-                        cx="25"
-                        cy="25"
-                        r="20"
-                        fill="none"
-                        stroke="#2e3192"
-                        strokeWidth="4"
-                        strokeDasharray={`${2 * Math.PI * 20 * progress} ${2 * Math.PI * 20 * (1 - progress)}`}
-                        strokeLinecap="round"
-                    />
-                </svg>
-                <div
-                    style={{
-                        position: "absolute",
-                        top: "50%",
-                        left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        width: active ? "12px" : "8px",
-                        height: active ? "12px" : "8px",
-                        borderRadius: "50%",
-                        backgroundColor: "white",
-                        boxShadow: active ? "0 0 10px rgba(46, 49, 146, 1)" : "none",
-                        transition: "all 0.3s ease",
-                    }}
+        <group>
+            <Ring
+                args={[0.03, 0.04, 32]} // Inner radius 0.03, outer 0.04
+                rotation={[Math.PI / 2, 0, 0]}
+            >
+                <meshBasicMaterial
+                    color="#2e3192"
+                    transparent
+                    opacity={active ? 0.8 : 0}
+                    side={THREE.DoubleSide}
+                    toneMapped={false}
                 />
-            </div>
-        </Html>
+            </Ring>
+            <mesh>
+                <sphereGeometry args={[active ? 0.015 : 0.01, 16, 16]} />
+                <meshBasicMaterial
+                    color="white"
+                    transparent
+                    opacity={active ? 1 : 0.5}
+                    toneMapped={false}
+                />
+            </mesh>
+        </group>
     )
 }
 
 function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, number]; buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]> }) {
-    const logoTexture = useLoader(THREE.TextureLoader, "/images/christ-logo1.jpg")
+    const logoTexture = useLoader(THREE.TextureLoader, "/images/christ-logo.png")
     const [hoveredButton, setHoveredButton] = useState<number | null>(null)
     const [animationProgress, setAnimationProgress] = useState({
         logo: 0,
@@ -148,7 +131,7 @@ function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, 
                 const yOffset = 0.3 - index * 0.5
                 const isHovered = hoveredButton === index
                 const anim = animationProgress.buttons[index]
-                const scale = isHovered ? 1.05 : 1 // Subtle hover scale
+                const scale = isHovered ? 1.05 : 1
                 return (
                     <group key={index} position={[0, yOffset, 0.01]} scale={scale}>
                         {/* Button background */}
@@ -239,7 +222,8 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
 
     useEffect(() => {
         if (deviceType === "mobile" || deviceType === "vr") {
-            setGazeTarget(0)
+            setGazeTarget(0) // Initialize gaze target
+            console.log("Gaze target initialized:", deviceType, gazeTarget)
         }
         setInVRMode(deviceType === "vr")
     }, [deviceType])
@@ -255,7 +239,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                     const vector = new THREE.Vector3(
                         ((rect.left + rect.width / 2) / size.width) * 2 - 1,
                         -((rect.top + rect.height / 2) / size.height) * 2 + 1,
-                        -8,
+                        -2, // Match UI depth
                     )
                     vector.unproject(camera)
                     const dir = vector.sub(camera.position).normalize()
@@ -269,20 +253,23 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
 
             if (intersects.length > 0) {
                 const closest = intersects[0]
-                if (gazeTarget === closest.index) {
+                if (gazeTarget !== closest.index) {
+                    setGazeTarget(closest.index)
+                    gazeTimerRef.current = 0
+                    console.log("Gaze target set:", closest.index)
+                } else {
                     gazeTimerRef.current += delta
                     if (gazeTimerRef.current >= gazeThreshold) {
                         buttonRefs.current[closest.index]?.click()
                         gazeTimerRef.current = 0
                         setGazeTarget(null)
+                        console.log("Button clicked via gaze:", closest.index)
                     }
-                } else {
-                    setGazeTarget(closest.index)
-                    gazeTimerRef.current = 0
                 }
-            } else {
+            } else if (gazeTarget !== null) {
                 setGazeTarget(null)
                 gazeTimerRef.current = 0
+                console.log("Gaze target cleared")
             }
         }
     })
@@ -451,7 +438,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             {deviceType === "vr" && <VRNativeUIPanel position={[0, 0, -2]} buttonRefs={buttonRefs} />}
 
             {(deviceType === "vr" || deviceType === "mobile") && (
-                <group position={[0, 0, -1.5]}>
+                <group position={[0, 0, -1]}>
                     <GazePointer active={gazeTarget !== null} />
                 </group>
             )}
