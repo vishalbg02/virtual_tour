@@ -22,7 +22,7 @@ function GazePointer({ active }: { active: boolean }) {
 
     useFrame(() => {
         if (active && progress < 1) {
-            setProgress((prev) => Math.min(prev + 0.0005, 1)) // 20-second gaze
+            setProgress((prev) => Math.min(prev + 0.0025, 1)) // 4-second gaze
         } else if (!active && progress > 0) {
             setProgress((prev) => Math.max(prev - 0.05, 0))
         }
@@ -276,13 +276,21 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 await session.updateRenderState({ baseLayer: glLayer })
 
                 gl.xr.enabled = true
-                gl.setAnimationLoop(() => gl.render(scene, camera))
-                await gl.xr.setSession(session)
+                gl.xr.setReferenceSpaceType("local") // Ensure reference space is set
+                gl.xr.setSession(session)
+
+                // Start the render loop
+                const renderLoop = () => {
+                    if (vrSessionRef.current) {
+                        gl.render(scene, camera)
+                        vrSessionRef.current.requestAnimationFrame(renderLoop)
+                    }
+                }
+                session.requestAnimationFrame(renderLoop)
 
                 session.addEventListener("end", () => {
                     console.log("VR session ended")
                     gl.xr.enabled = false
-                    gl.setAnimationLoop(null)
                     vrSessionRef.current = null
                     onExit()
                 })
@@ -342,9 +350,11 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             <PerspectiveCamera makeDefault position={[0, 0, 0.1]} fov={90} />
             <ambientLight intensity={1} />
             <pointLight position={[0, 2, 2]} intensity={2} distance={10} />
-            <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
-                <meshBasicMaterial map={texture} side={THREE.BackSide} />
-            </Sphere>
+            {texture && (
+                <Sphere args={[500, 60, 40]} scale={[1, 1, -1]} rotation={[0, Math.PI / 2, 0]}>
+                    <meshBasicMaterial map={texture} side={THREE.BackSide} />
+                </Sphere>
+            )}
 
             {/* Debug boxes to help visualize positions */}
             <DebugBox position={[0, 0, -1]} />
