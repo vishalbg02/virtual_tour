@@ -47,7 +47,7 @@ function GazePointer({ active }: { active: boolean }) {
                         cy="25"
                         r="20"
                         fill="none"
-                        stroke="#3b82f6"
+                        stroke="#2e3192"
                         strokeWidth="4"
                         strokeDasharray={`${2 * Math.PI * 20 * progress} ${2 * Math.PI * 20 * (1 - progress)}`}
                         strokeLinecap="round"
@@ -63,7 +63,7 @@ function GazePointer({ active }: { active: boolean }) {
                         height: active ? "12px" : "8px",
                         borderRadius: "50%",
                         backgroundColor: "white",
-                        boxShadow: active ? "0 0 10px rgba(59, 130, 246, 1)" : "none",
+                        boxShadow: active ? "0 0 10px rgba(46, 49, 146, 1)" : "none",
                         transition: "all 0.3s ease",
                     }}
                 />
@@ -81,328 +81,347 @@ function DebugBox({ position }: { position: [number, number, number] }) {
 }
 
 function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, number]; buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]> }) {
-    const logoTexture = useLoader(THREE.TextureLoader, "/images/christ-logo.png");
-    const [hoveredButton, setHoveredButton] = useState<number | null>(null);
+    const logoTexture = useLoader(THREE.TextureLoader, "/images/christ-logo.png")
+    const [hoveredButton, setHoveredButton] = useState<number | null>(null)
+    const [animationProgress, setAnimationProgress] = useState({
+        logo: 0,
+        title: 0,
+        subtitle: 0,
+        buttons: [0, 0, 0, 0],
+        credits: 0,
+    })
 
     const buttons = [
         { text: "Enter VR Tour" },
         { text: "Meet The Team" },
         { text: "About The Project" },
         { text: "Credits" },
-    ];
+    ]
+
+    // Animation timing (matching CSS delays)
+    useFrame((_, delta: number) => {
+        setAnimationProgress((prev) => ({
+            logo: Math.min(prev.logo + delta / 0.8, 1), // 0.8s duration, 0.3s delay
+            title: Math.min(prev.title + delta / 0.8, 1), // 0.8s, 0.5s delay
+            subtitle: Math.min(prev.subtitle + delta / 0.8, 1), // 0.8s, 0.7s delay
+            buttons: prev.buttons.map((val) => Math.min(val + delta / 0.6, 1)), // 0.6s, 0.9s-1.2s delay
+            credits: Math.min(prev.credits + delta / 0.8, 1), // 0.8s, 1.4s delay
+        }))
+    })
 
     return (
         <group position={position}>
-            {/* Card background with shadow effect */}
+            {/* Card background */}
             <mesh position={[0, 0, -0.1]}>
-                <planeGeometry args={[4, 5]} />
-                <meshBasicMaterial color="white" />
+                <planeGeometry args={[4.5, 5.5]} />
+                <meshBasicMaterial color="rgba(255, 255, 255, 0.95)" transparent />
             </mesh>
-            {/* Shadow effect */}
+            {/* Shadow */}
             <mesh position={[0, 0, -0.15]}>
-                <planeGeometry args={[4.2, 5.2]} />
-                <meshBasicMaterial color="rgba(0, 0, 0, 0.5)" transparent opacity={0.3} />
+                <planeGeometry args={[4.7, 5.7]} />
+                <meshBasicMaterial color="rgba(0, 0, 0, 0.15)" transparent />
             </mesh>
 
             {/* Logo */}
-            <mesh position={[0, 1.8, 0.01]}>
-                <planeGeometry args={[1, 1]} />
-                <meshBasicMaterial map={logoTexture} transparent />
+            <mesh position={[0, 2.2, 0.01]} scale={animationProgress.logo > 0.6 ? 1 : animationProgress.logo * 1.1}>
+                <planeGeometry args={[0.8, 0.8]} />
+                <meshBasicMaterial map={logoTexture} transparent opacity={animationProgress.logo} />
             </mesh>
 
             {/* Title */}
             <Text
-                position={[0, 0.8, 0.01]}
-                fontSize={0.35}
-                color="black"
+                position={[0, 1.2, 0.01]}
+                fontSize={0.28}
+                color="#2e3192"
                 anchorX="center"
                 anchorY="middle"
-                maxWidth={3.5}
-                font="/fonts/Inter-Bold.ttf" // Replace with your font
+                maxWidth={4}
                 textAlign="center"
             >
-                Christ University (Central Campus)
+                CHRIST UNIVERSITY (CENTRAL CAMPUS)
+                <meshBasicMaterial transparent opacity={animationProgress.title} />
             </Text>
 
             {/* Subtitle */}
             <Text
-                position={[0, 0.4, 0.01]}
-                fontSize={0.25}
-                color="black"
+                position={[0, 0.8, 0.01]}
+                fontSize={0.24}
+                color="#2e3192"
                 anchorX="center"
                 anchorY="middle"
-                maxWidth={3.5}
-                font="/fonts/Inter-Regular.ttf" // Replace with your font
+                maxWidth={4}
                 textAlign="center"
             >
-                VR Experience
+                VR EXPERIENCE
+                <meshBasicMaterial transparent opacity={animationProgress.subtitle} />
             </Text>
 
             {/* Buttons */}
             {buttons.map((button, index) => {
-                const yOffset = -0.2 - index * 0.5;
-                const isHovered = hoveredButton === index;
+                const yOffset = 0.2 - index * 0.5
+                const isHovered = hoveredButton === index
+                const anim = animationProgress.buttons[index]
                 return (
                     <group key={index} position={[0, yOffset, 0.01]}>
                         {/* Button background */}
                         <mesh>
-                            <planeGeometry args={[2.5, 0.4]} />
-                            <meshBasicMaterial color={isHovered ? "#2563eb" : "#3b82f6"} />
+                            <planeGeometry args={[1.8, 0.36]} />
+                            <meshBasicMaterial color={isHovered ? "#2e3192" : "#f8f8f8"} transparent opacity={anim} />
                         </mesh>
                         {/* Button text */}
                         <Text
                             position={[0, 0, 0.02]}
-                            fontSize={0.2}
-                            color="white"
+                            fontSize={0.18}
+                            color={isHovered ? "#ffffff" : "#2e3192"}
                             anchorX="center"
                             anchorY="middle"
-                            maxWidth={2.4}
-                            font="/fonts/Inter-Medium.ttf" // Replace with your font
+                            maxWidth={1.7}
+                            textAlign="center"
                         >
                             {button.text}
+                            <meshBasicMaterial transparent opacity={anim} />
                         </Text>
                         {/* Clickable plane */}
                         <mesh
                             onClick={() => {
                                 if (buttonRefs.current[index]) {
-                                    buttonRefs.current[index]?.click();
+                                    buttonRefs.current[index]?.click()
                                 }
                             }}
                             onPointerOver={() => setHoveredButton(index)}
                             onPointerOut={() => setHoveredButton(null)}
                         >
-                            <planeGeometry args={[2.5, 0.4]} />
+                            <planeGeometry args={[1.8, 0.36]} />
                             <meshBasicMaterial visible={false} />
                         </mesh>
                     </group>
-                );
+                )
             })}
 
             {/* Credit Section */}
             <Text
-                position={[0, -2, 0.01]}
-                fontSize={0.15}
-                color="black"
+                position={[0, -2.2, 0.01]}
+                fontSize={0.16}
+                color="#2e3192"
                 anchorX="center"
                 anchorY="middle"
-                maxWidth={3.5}
-                font="/fonts/Inter-Regular.ttf" // Replace with your font
+                maxWidth={4}
                 textAlign="center"
             >
                 Guided by Dr. Suresh K
+                <meshBasicMaterial transparent opacity={animationProgress.credits} />
             </Text>
             <Text
-                position={[0, -2.3, 0.01]}
-                fontSize={0.15}
-                color="black"
+                position={[0, -2.5, 0.01]}
+                fontSize={0.16}
+                color="#2e3192"
                 anchorX="center"
                 anchorY="middle"
-                maxWidth={3.5}
-                font="/fonts/Inter-Regular.ttf" // Replace with your font
+                maxWidth={4}
                 textAlign="center"
             >
                 Directed by Dr. Ashok Immanuel V
+                <meshBasicMaterial transparent opacity={animationProgress.credits} />
             </Text>
         </group>
-    );
+    )
 }
 
 function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
     const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg", (loader) => {
-        loader.setCrossOrigin("anonymous");
-    });
+        loader.setCrossOrigin("anonymous")
+    })
 
     useEffect(() => {
         if (texture) {
-            texture.minFilter = THREE.LinearFilter;
-            texture.generateMipmaps = false;
+            texture.minFilter = THREE.LinearFilter
+            texture.generateMipmaps = false
         }
-    }, [texture]);
+    }, [texture])
 
-    const { camera, gl, scene } = useThree();
-    const controlsRef = useRef<OrbitControlsImpl | null>(null);
-    const cleanupRef = useRef<(() => void) | null>(null);
-    const [gazeTarget, setGazeTarget] = useState<number | null>(null);
-    const gazeTimerRef = useRef<number>(0);
-    const gazeThreshold = 4;
-    const { size } = useThree();
-    const vrSessionRef = useRef<XRSession | null>(null);
-    const [, setInVRMode] = useState(false);
+    const { camera, gl, scene } = useThree()
+    const controlsRef = useRef<OrbitControlsImpl | null>(null)
+    const cleanupRef = useRef<(() => void) | null>(null)
+    const [gazeTarget, setGazeTarget] = useState<number | null>(null)
+    const gazeTimerRef = useRef<number>(0)
+    const gazeThreshold = 4
+    const { size } = useThree()
+    const vrSessionRef = useRef<XRSession | null>(null)
+    const [, setInVRMode] = useState(false)
 
     useEffect(() => {
         if (deviceType === "mobile" || deviceType === "vr") {
-            setGazeTarget(0);
+            setGazeTarget(0)
         }
-        setInVRMode(deviceType === "vr");
-    }, [deviceType]);
+        setInVRMode(deviceType === "vr")
+    }, [deviceType])
 
-    useFrame((state, delta) => {
+    useFrame((_, delta: number) => {
         if (deviceType === "vr" || deviceType === "mobile") {
-            const raycaster = new THREE.Raycaster();
-            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const raycaster = new THREE.Raycaster()
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera)
             const intersects = buttonRefs.current
                 .map((btn, index) => {
-                    if (!btn) return null;
-                    const rect = btn.getBoundingClientRect();
+                    if (!btn) return null
+                    const rect = btn.getBoundingClientRect()
                     const vector = new THREE.Vector3(
                         ((rect.left + rect.width / 2) / size.width) * 2 - 1,
                         -((rect.top + rect.height / 2) / size.height) * 2 + 1,
                         -8,
-                    );
-                    vector.unproject(camera);
-                    const dir = vector.sub(camera.position).normalize();
-                    const distance = -camera.position.z / dir.z;
-                    const pos = camera.position.clone().add(dir.multiplyScalar(distance));
-                    const dist = camera.position.distanceTo(pos);
-                    return { index, distance: dist };
+                    )
+                    vector.unproject(camera)
+                    const dir = vector.sub(camera.position).normalize()
+                    const distance = -camera.position.z / dir.z
+                    const pos = camera.position.clone().add(dir.multiplyScalar(distance))
+                    const dist = camera.position.distanceTo(pos)
+                    return { index, distance: dist }
                 })
                 .filter((item): item is { index: number; distance: number } => item !== null)
-                .sort((a, b) => a.distance - b.distance);
+                .sort((a, b) => a.distance - b.distance)
 
             if (intersects.length > 0) {
-                const closest = intersects[0];
+                const closest = intersects[0]
                 if (gazeTarget === closest.index) {
-                    gazeTimerRef.current += delta;
+                    gazeTimerRef.current += delta
                     if (gazeTimerRef.current >= gazeThreshold) {
-                        buttonRefs.current[closest.index]?.click();
-                        gazeTimerRef.current = 0;
-                        setGazeTarget(null);
+                        buttonRefs.current[closest.index]?.click()
+                        gazeTimerRef.current = 0
+                        setGazeTarget(null)
                     }
                 } else {
-                    setGazeTarget(closest.index);
-                    gazeTimerRef.current = 0;
+                    setGazeTarget(closest.index)
+                    gazeTimerRef.current = 0
                 }
             } else {
-                setGazeTarget(null);
-                gazeTimerRef.current = 0;
+                setGazeTarget(null)
+                gazeTimerRef.current = 0
             }
         }
-    });
+    })
 
     const setupDeviceOrientation = async () => {
         const deviceOrientationEvent =
             "DeviceOrientationEvent" in window
                 ? (window.DeviceOrientationEvent as unknown as {
-                    requestPermission?: () => Promise<"granted" | "denied">;
+                    requestPermission?: () => Promise<"granted" | "denied">
                 })
-                : null;
+                : null
 
         if (deviceOrientationEvent?.requestPermission) {
-            const permission = await deviceOrientationEvent.requestPermission();
+            const permission = await deviceOrientationEvent.requestPermission()
             if (permission === "granted") {
                 const handleOrientation = (event: DeviceOrientationEvent) => {
-                    const alpha = THREE.MathUtils.degToRad(event.alpha || 0);
-                    const beta = THREE.MathUtils.degToRad(event.beta || 0);
-                    const gamma = THREE.MathUtils.degToRad(event.gamma || 0);
-                    const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ");
-                    camera.quaternion.setFromEuler(euler);
-                };
-                window.addEventListener("deviceorientation", handleOrientation, true);
-                cleanupRef.current = () => window.removeEventListener("deviceorientation", handleOrientation, true);
-                return true;
+                    const alpha = THREE.MathUtils.degToRad(event.alpha || 0)
+                    const beta = THREE.MathUtils.degToRad(event.beta || 0)
+                    const gamma = THREE.MathUtils.degToRad(event.gamma || 0)
+                    const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ")
+                    camera.quaternion.setFromEuler(euler)
+                }
+                window.addEventListener("deviceorientation", handleOrientation, true)
+                cleanupRef.current = () => window.removeEventListener("deviceorientation", handleOrientation, true)
+                return true
             }
         } else if (deviceOrientationEvent) {
             const handleOrientation = (event: DeviceOrientationEvent) => {
-                const alpha = THREE.MathUtils.degToRad(event.alpha || 0);
-                const beta = THREE.MathUtils.degToRad(event.beta || 0);
-                const gamma = THREE.MathUtils.degToRad(event.gamma || 0);
-                const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ");
-                camera.quaternion.setFromEuler(euler);
-            };
-            window.addEventListener("deviceorientation", handleOrientation, true);
-            cleanupRef.current = () => window.removeEventListener("deviceorientation", handleOrientation, true);
-            return true;
+                const alpha = THREE.MathUtils.degToRad(event.alpha || 0)
+                const beta = THREE.MathUtils.degToRad(event.beta || 0)
+                const gamma = THREE.MathUtils.degToRad(event.gamma || 0)
+                const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ")
+                camera.quaternion.setFromEuler(euler)
+            }
+            window.addEventListener("deviceorientation", handleOrientation, true)
+            cleanupRef.current = () => window.removeEventListener("deviceorientation", handleOrientation, true)
+            return true
         }
-        return false;
-    };
+        return false
+    }
 
     const initVRSession = async () => {
         if (vrSessionRef.current) {
-            console.log("VR session already active, not creating a new one");
-            return true;
+            console.log("VR session already active, not creating a new one")
+            return true
         }
 
         if ("xr" in navigator) {
             try {
                 const xr = navigator as Navigator & {
                     xr: {
-                        isSessionSupported: (mode: string) => Promise<boolean>;
-                        requestSession: (mode: string, options?: { optionalFeatures: string[] }) => Promise<XRSession>;
-                    };
-                };
+                        isSessionSupported: (mode: string) => Promise<boolean>
+                        requestSession: (mode: string, options?: { optionalFeatures: string[] }) => Promise<XRSession>
+                    }
+                }
 
-                const isSupported = await xr.xr.isSessionSupported("immersive-vr");
+                const isSupported = await xr.xr.isSessionSupported("immersive-vr")
                 if (!isSupported) {
-                    console.warn("VR not supported on this device");
-                    return false;
+                    console.warn("VR not supported on this device")
+                    return false
                 }
 
                 const session = await xr.xr.requestSession("immersive-vr", {
                     optionalFeatures: ["local-floor", "bounded-floor"],
-                });
+                })
 
-                vrSessionRef.current = session;
+                vrSessionRef.current = session
 
-                gl.xr.enabled = true;
-                gl.setAnimationLoop(() => gl.render(scene, camera));
-                await gl.xr.setSession(session);
+                gl.xr.enabled = true
+                gl.setAnimationLoop(() => gl.render(scene, camera))
+                await gl.xr.setSession(session)
 
                 session.addEventListener("end", () => {
-                    console.log("VR session ended");
-                    gl.xr.enabled = false;
-                    gl.setAnimationLoop(null);
-                    vrSessionRef.current = null;
-                    onExit();
-                });
+                    console.log("VR session ended")
+                    gl.xr.enabled = false
+                    gl.setAnimationLoop(null)
+                    vrSessionRef.current = null
+                    onExit()
+                })
 
                 cleanupRef.current = () => {
                     if (vrSessionRef.current) {
-                        vrSessionRef.current.end();
-                        vrSessionRef.current = null;
+                        vrSessionRef.current.end()
+                        vrSessionRef.current = null
                     }
-                };
+                }
 
-                return true;
+                return true
             } catch (error) {
-                console.error("Error initializing VR session:", error);
-                return false;
+                console.error("Error initializing VR session:", error)
+                return false
             }
         }
-        return false;
-    };
+        return false
+    }
 
     useEffect(() => {
         const initialize = async () => {
             if (deviceType === "vr" && isVRSupported) {
-                const vrStarted = await initVRSession();
-                if (!vrStarted && controlsRef.current) controlsRef.current.enabled = true;
+                const vrStarted = await initVRSession()
+                if (!vrStarted && controlsRef.current) controlsRef.current.enabled = true
             } else if (deviceType === "mobile") {
-                const gyroEnabled = await setupDeviceOrientation();
-                if (!gyroEnabled && controlsRef.current) controlsRef.current.enabled = true;
+                const gyroEnabled = await setupDeviceOrientation()
+                if (!gyroEnabled && controlsRef.current) controlsRef.current.enabled = true
             } else if (controlsRef.current) {
-                controlsRef.current.enabled = true;
-                controlsRef.current.enableDamping = true;
-                controlsRef.current.dampingFactor = 0.05;
+                controlsRef.current.enabled = true
+                controlsRef.current.enableDamping = true
+                controlsRef.current.dampingFactor = 0.05
             }
-        };
-        initialize();
+        }
+        initialize()
         return () => {
             if (cleanupRef.current) {
-                cleanupRef.current();
+                cleanupRef.current()
             }
-        };
-    }, [deviceType, isVRSupported, onExit, camera, scene, gl]);
+        }
+    }, [deviceType, isVRSupported, onExit, camera, scene, gl])
 
     useEffect(() => {
         if (deviceType === "vr") {
-            camera.position.set(0, 0, 0.1);
-            camera.lookAt(0, 0, -1);
-            scene.updateMatrixWorld(true);
+            camera.position.set(0, 0, 0.1)
+            camera.lookAt(0, 0, -1)
+            scene.updateMatrixWorld(true)
         }
-    }, [deviceType, camera, scene]);
+    }, [deviceType, camera, scene])
 
-    const contentPosition: [number, number, number] =
-        deviceType === "vr" ? [0, 0, -2] : [0, 0, -8];
+    const contentPosition: [number, number, number] = deviceType === "vr" ? [0, 0, -2] : [0, 0, -8]
 
     return (
         <>
@@ -427,7 +446,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                         distanceFactor={10}
                         zIndexRange={[100, 0]}
                         style={{
-                            width: "600px",
+                            width: "700px",
                             height: "auto",
                             pointerEvents: "auto",
                         }}
@@ -435,10 +454,10 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                         <div
                             style={{
                                 width: "100%",
-                                background: "white",
-                                padding: "30px",
-                                borderRadius: "15px",
-                                boxShadow: "0 0 30px rgba(0, 0, 0, 0.5)",
+                                background: "rgba(255, 255, 255, 0.95)",
+                                padding: "2.5rem 2rem",
+                                borderRadius: "20px",
+                                boxShadow: "0 10px 30px rgba(0, 0, 0, 0.15)",
                             }}
                         >
                             {children}
@@ -447,9 +466,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 </mesh>
             )}
 
-            {deviceType === "vr" && (
-                <VRNativeUIPanel position={[0, 0, -2]} buttonRefs={buttonRefs} />
-            )}
+            {deviceType === "vr" && <VRNativeUIPanel position={[0, 0, -2]} buttonRefs={buttonRefs} />}
 
             {(deviceType === "vr" || deviceType === "mobile") && (
                 <group position={[0, 0, -1.5]}>
@@ -470,7 +487,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 maxPolarAngle={Math.PI * 0.9}
             />
         </>
-    );
+    )
 }
 
 export default function VRWrapper({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
