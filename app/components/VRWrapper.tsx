@@ -6,6 +6,7 @@ import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber"
 import { PerspectiveCamera, OrbitControls, Sphere, Html, Box } from "@react-three/drei"
 import * as THREE from "three"
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
+import html2canvas from 'html2canvas';
 
 type DeviceType = "desktop" | "mobile" | "vr"
 
@@ -72,7 +73,6 @@ function GazePointer({ active }: { active: boolean }) {
     )
 }
 
-// Create a simple debug component to help visualize positions
 function DebugBox({ position }: { position: [number, number, number] }) {
     return (
         <Box position={position} args={[0.5, 0.5, 0.5]}>
@@ -81,17 +81,49 @@ function DebugBox({ position }: { position: [number, number, number] }) {
     )
 }
 
-// Simple VR UI component that works reliably in VR
 function VRUIPanel({ position, children }: { position: [number, number, number]; children: React.ReactNode }) {
+    const texture = new THREE.CanvasTexture(document.createElement('canvas'));
+    const htmlRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!htmlRef.current) return;
+
+        const observer = new MutationObserver(() => {
+            if (htmlRef.current) {
+                html2canvas(htmlRef.current).then(canvas => {
+                    texture.image = canvas;
+                    texture.needsUpdate = true;
+                });
+            }
+        });
+
+        observer.observe(htmlRef.current, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            characterData: true
+        });
+
+        html2canvas(htmlRef.current).then(canvas => {
+            texture.image = canvas;
+            texture.needsUpdate = true;
+        });
+
+        return () => observer.disconnect();
+    }, [htmlRef, texture]);
+
     return (
         <group position={position}>
-            {/* Background panel */}
-            <mesh position={[0, 0, -0.01]}>
+            <mesh position={[0, 0, -0.1]}>
                 <planeGeometry args={[4, 3]} />
-                <meshBasicMaterial color="white" />
+                <meshBasicMaterial color="#f0f0f0" />
             </mesh>
 
-            {/* Content */}
+            <mesh position={[0, 0, 0]}>
+                <planeGeometry args={[3.8, 2.8]} />
+                <meshBasicMaterial map={texture} transparent={true} />
+            </mesh>
+
             <Html
                 transform
                 distanceFactor={1}
@@ -99,13 +131,13 @@ function VRUIPanel({ position, children }: { position: [number, number, number];
                 style={{
                     width: "800px",
                     height: "600px",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    pointerEvents: "auto",
+                    opacity: 0,
+                    pointerEvents: "none",
+                    visibility: "hidden",
                 }}
             >
                 <div
+                    ref={htmlRef}
                     style={{
                         width: "100%",
                         maxWidth: "800px",
@@ -119,222 +151,205 @@ function VRUIPanel({ position, children }: { position: [number, number, number];
                 </div>
             </Html>
         </group>
-    )
+    );
 }
 
 function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
-    // Use a smaller texture size to avoid WebGL warnings
     const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg", (loader) => {
-        // Set texture parameters to avoid quality issues with resizing
-        loader.setCrossOrigin("anonymous")
-    })
+        loader.setCrossOrigin("anonymous");
+    });
 
-    // Apply texture settings to prevent mipmap issues
     useEffect(() => {
         if (texture) {
-            texture.minFilter = THREE.LinearFilter
-            texture.generateMipmaps = false
+            texture.minFilter = THREE.LinearFilter;
+            texture.generateMipmaps = false;
         }
-    }, [texture])
+    }, [texture]);
 
-    const { camera, gl, scene } = useThree()
-    const controlsRef = useRef<OrbitControlsImpl | null>(null)
-    const cleanupRef = useRef<(() => void) | null>(null)
-    const [gazeTarget, setGazeTarget] = useState<number | null>(null)
-    const gazeTimerRef = useRef<number>(0)
-    const gazeThreshold = 4
-    const { size } = useThree() // Gets the actual canvas size
-    const vrSessionRef = useRef<XRSession | null>(null)
-
-    // Create a reference to track if we're in VR mode
-    const [, setInVRMode] = useState(false)
+    const { camera, gl, scene } = useThree();
+    const controlsRef = useRef<OrbitControlsImpl | null>(null);
+    const cleanupRef = useRef<(() => void) | null>(null);
+    const [gazeTarget, setGazeTarget] = useState<number | null>(null);
+    const gazeTimerRef = useRef<number>(0);
+    const gazeThreshold = 4;
+    const { size } = useThree();
+    const vrSessionRef = useRef<XRSession | null>(null);
+    const [, setInVRMode] = useState(false);
 
     useEffect(() => {
         if (deviceType === "mobile" || deviceType === "vr") {
-            setGazeTarget(0)
+            setGazeTarget(0);
         }
-
-        // Set VR mode state
-        setInVRMode(deviceType === "vr")
-    }, [deviceType])
+        setInVRMode(deviceType === "vr");
+    }, [deviceType]);
 
     useFrame((state, delta) => {
         if (deviceType === "vr" || deviceType === "mobile") {
-            const raycaster = new THREE.Raycaster()
-            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera)
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
             const intersects = buttonRefs.current
                 .map((btn, index) => {
-                    if (!btn) return null
-                    const rect = btn.getBoundingClientRect()
+                    if (!btn) return null;
+                    const rect = btn.getBoundingClientRect();
                     const vector = new THREE.Vector3(
                         ((rect.left + rect.width / 2) / size.width) * 2 - 1,
                         -((rect.top + rect.height / 2) / size.height) * 2 + 1,
                         -8,
-                    )
-                    vector.unproject(camera)
-                    const dir = vector.sub(camera.position).normalize()
-                    const distance = -camera.position.z / dir.z
-                    const pos = camera.position.clone().add(dir.multiplyScalar(distance))
-                    const dist = camera.position.distanceTo(pos)
-                    return { index, distance: dist }
+                    );
+                    vector.unproject(camera);
+                    const dir = vector.sub(camera.position).normalize();
+                    const distance = -camera.position.z / dir.z;
+                    const pos = camera.position.clone().add(dir.multiplyScalar(distance));
+                    const dist = camera.position.distanceTo(pos);
+                    return { index, distance: dist };
                 })
                 .filter((item): item is { index: number; distance: number } => item !== null)
-                .sort((a, b) => a.distance - b.distance)
+                .sort((a, b) => a.distance - b.distance);
 
             if (intersects.length > 0) {
-                const closest = intersects[0]
+                const closest = intersects[0];
                 if (gazeTarget === closest.index) {
-                    gazeTimerRef.current += delta
+                    gazeTimerRef.current += delta;
                     if (gazeTimerRef.current >= gazeThreshold) {
-                        buttonRefs.current[closest.index]?.click()
-                        gazeTimerRef.current = 0
-                        setGazeTarget(null)
+                        buttonRefs.current[closest.index]?.click();
+                        gazeTimerRef.current = 0;
+                        setGazeTarget(null);
                     }
                 } else {
-                    setGazeTarget(closest.index)
-                    gazeTimerRef.current = 0
+                    setGazeTarget(closest.index);
+                    gazeTimerRef.current = 0;
                 }
             } else {
-                setGazeTarget(null)
-                gazeTimerRef.current = 0
+                setGazeTarget(null);
+                gazeTimerRef.current = 0;
             }
         }
-    })
+    });
 
     const setupDeviceOrientation = async () => {
         const deviceOrientationEvent =
             "DeviceOrientationEvent" in window
                 ? (window.DeviceOrientationEvent as unknown as {
-                    requestPermission?: () => Promise<"granted" | "denied">
+                    requestPermission?: () => Promise<"granted" | "denied">;
                 })
-                : null
+                : null;
 
         if (deviceOrientationEvent?.requestPermission) {
-            const permission = await deviceOrientationEvent.requestPermission()
+            const permission = await deviceOrientationEvent.requestPermission();
             if (permission === "granted") {
                 const handleOrientation = (event: DeviceOrientationEvent) => {
-                    const alpha = THREE.MathUtils.degToRad(event.alpha || 0)
-                    const beta = THREE.MathUtils.degToRad(event.beta || 0)
-                    const gamma = THREE.MathUtils.degToRad(event.gamma || 0)
-                    const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ")
-                    camera.quaternion.setFromEuler(euler)
-                }
-                window.addEventListener("deviceorientation", handleOrientation, true)
-                cleanupRef.current = () => window.removeEventListener("deviceorientation", handleOrientation, true)
-                return true
+                    const alpha = THREE.MathUtils.degToRad(event.alpha || 0);
+                    const beta = THREE.MathUtils.degToRad(event.beta || 0);
+                    const gamma = THREE.MathUtils.degToRad(event.gamma || 0);
+                    const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ");
+                    camera.quaternion.setFromEuler(euler);
+                };
+                window.addEventListener("deviceorientation", handleOrientation, true);
+                cleanupRef.current = () => window.removeEventListener("deviceorientation", handleOrientation, true);
+                return true;
             }
         } else if (deviceOrientationEvent) {
             const handleOrientation = (event: DeviceOrientationEvent) => {
-                const alpha = THREE.MathUtils.degToRad(event.alpha || 0)
-                const beta = THREE.MathUtils.degToRad(event.beta || 0)
-                const gamma = THREE.MathUtils.degToRad(event.gamma || 0)
-                const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ")
-                camera.quaternion.setFromEuler(euler)
-            }
-            window.addEventListener("deviceorientation", handleOrientation, true)
-            cleanupRef.current = () => window.removeEventListener("deviceorientation", handleOrientation, true)
-            return true
+                const alpha = THREE.MathUtils.degToRad(event.alpha || 0);
+                const beta = THREE.MathUtils.degToRad(event.beta || 0);
+                const gamma = THREE.MathUtils.degToRad(event.gamma || 0);
+                const euler = new THREE.Euler(beta, alpha, -gamma, "YXZ");
+                camera.quaternion.setFromEuler(euler);
+            };
+            window.addEventListener("deviceorientation", handleOrientation, true);
+            cleanupRef.current = () => window.removeEventListener("deviceorientation", handleOrientation, true);
+            return true;
         }
-        return false
-    }
+        return false;
+    };
 
     const initVRSession = async () => {
-        // Check if we already have an active session
         if (vrSessionRef.current) {
-            console.log("VR session already active, not creating a new one")
-            return true
+            console.log("VR session already active, not creating a new one");
+            return true;
         }
 
         if ("xr" in navigator) {
             try {
                 const xr = navigator as Navigator & {
                     xr: {
-                        isSessionSupported: (mode: string) => Promise<boolean>
-                        requestSession: (mode: string, options?: { optionalFeatures: string[] }) => Promise<XRSession>
-                    }
-                }
+                        isSessionSupported: (mode: string) => Promise<boolean>;
+                        requestSession: (mode: string, options?: { optionalFeatures: string[] }) => Promise<XRSession>;
+                    };
+                };
 
-                // First check if session is supported
-                const isSupported = await xr.xr.isSessionSupported("immersive-vr")
+                const isSupported = await xr.xr.isSessionSupported("immersive-vr");
                 if (!isSupported) {
-                    console.warn("VR not supported on this device")
-                    return false
+                    console.warn("VR not supported on this device");
+                    return false;
                 }
 
                 const session = await xr.xr.requestSession("immersive-vr", {
                     optionalFeatures: ["local-floor", "bounded-floor"],
-                })
+                });
 
-                vrSessionRef.current = session
+                vrSessionRef.current = session;
 
-                gl.xr.enabled = true
-                gl.setAnimationLoop(() => gl.render(scene, camera))
-                await gl.xr.setSession(session)
+                gl.xr.enabled = true;
+                gl.setAnimationLoop(() => gl.render(scene, camera));
+                await gl.xr.setSession(session);
 
                 session.addEventListener("end", () => {
-                    console.log("VR session ended")
-                    gl.xr.enabled = false
-                    gl.setAnimationLoop(null)
-                    vrSessionRef.current = null
-                    onExit()
-                })
+                    console.log("VR session ended");
+                    gl.xr.enabled = false;
+                    gl.setAnimationLoop(null);
+                    vrSessionRef.current = null;
+                    onExit();
+                });
 
                 cleanupRef.current = () => {
                     if (vrSessionRef.current) {
-                        vrSessionRef.current.end()
-                        vrSessionRef.current = null
+                        vrSessionRef.current.end();
+                        vrSessionRef.current = null;
                     }
-                }
+                };
 
-                return true
+                return true;
             } catch (error) {
-                console.error("Error initializing VR session:", error)
-                return false
+                console.error("Error initializing VR session:", error);
+                return false;
             }
         }
-        return false
-    }
+        return false;
+    };
 
     useEffect(() => {
         const initialize = async () => {
             if (deviceType === "vr" && isVRSupported) {
-                const vrStarted = await initVRSession()
-                if (!vrStarted && controlsRef.current) controlsRef.current.enabled = true
+                const vrStarted = await initVRSession();
+                if (!vrStarted && controlsRef.current) controlsRef.current.enabled = true;
             } else if (deviceType === "mobile") {
-                const gyroEnabled = await setupDeviceOrientation()
-                if (!gyroEnabled && controlsRef.current) controlsRef.current.enabled = true
+                const gyroEnabled = await setupDeviceOrientation();
+                if (!gyroEnabled && controlsRef.current) controlsRef.current.enabled = true;
             } else if (controlsRef.current) {
-                controlsRef.current.enabled = true
-                controlsRef.current.enableDamping = true
-                controlsRef.current.dampingFactor = 0.05
+                controlsRef.current.enabled = true;
+                controlsRef.current.enableDamping = true;
+                controlsRef.current.dampingFactor = 0.05;
             }
-        }
-        initialize()
+        };
+        initialize();
         return () => {
             if (cleanupRef.current) {
-                cleanupRef.current()
+                cleanupRef.current();
             }
-        }
-    }, [deviceType, isVRSupported, onExit, camera, scene, gl])
+        };
+    }, [deviceType, isVRSupported, onExit, camera, scene, gl]);
 
-    // Position the camera and content for better VR viewing
     useEffect(() => {
         if (deviceType === "vr") {
-            // Position the camera for better viewing in VR
-            camera.position.z = 0.1
-            camera.position.y = 0
-            camera.lookAt(0, 0, -1)
-
-            // Force a scene update
-            scene.updateMatrixWorld(true)
+            camera.position.set(0, 0, 0.1);
+            camera.lookAt(0, 0, -1);
+            scene.updateMatrixWorld(true);
         }
-    }, [deviceType, camera, scene])
+    }, [deviceType, camera, scene]);
 
-    // Calculate content position based on device type
     const contentPosition: [number, number, number] =
-        deviceType === "vr"
-            ? [0, 0, -2] // Closer in VR
-            : [0, 0, -8] // Further in desktop/mobile
+        deviceType === "vr" ? [0, 0, -2] : [0, 0, -8];
 
     return (
         <>
@@ -345,14 +360,12 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
             </Sphere>
 
-            {/* Debug boxes to help visualize positions */}
             <DebugBox position={[0, 0, -1]} />
             <DebugBox position={[0, 0, -2]} />
             <DebugBox position={[0, 0, -3]} />
             <DebugBox position={[0, 0, -4]} />
             <DebugBox position={[0, 0, -5]} />
 
-            {/* For desktop and mobile, use regular Html component */}
             {deviceType !== "vr" && (
                 <mesh position={contentPosition}>
                     <Html
@@ -381,8 +394,30 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 </mesh>
             )}
 
-            {/* For VR, use the simplified VRUIPanel component */}
-            {deviceType === "vr" && <VRUIPanel position={[0, 0, -2]}>{children}</VRUIPanel>}
+            {deviceType === "vr" && (
+                <>
+                    <VRUIPanel position={[0, 0, -2]}>{children}</VRUIPanel>
+                    <group position={[0, 0, -1.99]}>
+                        {buttonRefs.current.map((_, index) => {
+                            const yOffset = 0.7 - index * 0.5;
+                            return (
+                                <mesh
+                                    key={index}
+                                    position={[0, yOffset, 0]}
+                                    onClick={() => {
+                                        if (buttonRefs.current[index]) {
+                                            buttonRefs.current[index]?.click();
+                                        }
+                                    }}
+                                >
+                                    <planeGeometry args={[2.5, 0.4]} />
+                                    <meshBasicMaterial visible={false} />
+                                </mesh>
+                            );
+                        })}
+                    </group>
+                </>
+            )}
 
             {(deviceType === "vr" || deviceType === "mobile") && (
                 <group position={[0, 0, -1.5]}>
@@ -403,7 +438,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 maxPolarAngle={Math.PI * 0.9}
             />
         </>
-    )
+    );
 }
 
 export default function VRWrapper({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
