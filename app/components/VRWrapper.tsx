@@ -26,11 +26,21 @@ interface VRWrapperProps {
 }
 
 function GazePointer({ active }: { active: boolean }) {
-    const [progress, setProgress] = useState<number>(0)
+    const { camera } = useThree()
+    const groupRef = useRef<THREE.Group>(null)
     const ringRef = useRef<THREE.Mesh>(null)
     const dotRef = useRef<THREE.Mesh>(null)
+    const [progress, setProgress] = useState<number>(0)
 
     useFrame((_, delta: number) => {
+        if (groupRef.current) {
+            // Position the gaze pointer along the camera's forward direction
+            const distance = 0.5 // Distance from camera
+            const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
+            groupRef.current.position.copy(camera.position).add(forward.multiplyScalar(distance))
+            groupRef.current.quaternion.copy(camera.quaternion) // Align with camera rotation
+        }
+
         if (active) {
             setProgress((prev) => Math.min(prev + delta / 4, 1)) // 4-second fill
         } else {
@@ -45,7 +55,7 @@ function GazePointer({ active }: { active: boolean }) {
     })
 
     return (
-        <group>
+        <group ref={groupRef}>
             <Ring
                 ref={ringRef}
                 args={[0.06, 0.07, 32]} // Slightly larger
@@ -92,7 +102,6 @@ function VRNativeUIPanel({ position, buttonRefs, buttons }: { position: [number,
         } else {
             router.push(button.href)
         }
-        // Trigger DOM button for consistency
         if (buttonRefs.current[index]) {
             buttonRefs.current[index]?.click()
         }
@@ -110,19 +119,14 @@ function VRNativeUIPanel({ position, buttonRefs, buttons }: { position: [number,
 
     return (
         <group position={position}>
-            {/* Card background */}
             <mesh position={[0, 0, -0.05]}>
                 <planeGeometry args={[4.5, 5.5]} />
                 <meshBasicMaterial color="#ffffff" opacity={0.95} transparent />
             </mesh>
-
-            {/* Logo */}
             <mesh position={[0, 2.2, 0.01]} scale={animationProgress.logo > 0.6 ? 1 : animationProgress.logo * 1.1}>
                 <planeGeometry args={[0.8, 0.8]} />
                 <meshBasicMaterial map={logoTexture} transparent opacity={animationProgress.logo} />
             </mesh>
-
-            {/* Title */}
             <Text
                 position={[0, 1.3, 0.01]}
                 fontSize={0.29}
@@ -135,8 +139,6 @@ function VRNativeUIPanel({ position, buttonRefs, buttons }: { position: [number,
                 CHRIST UNIVERSITY (CENTRAL CAMPUS)
                 <meshBasicMaterial transparent opacity={animationProgress.title} />
             </Text>
-
-            {/* Subtitle */}
             <Text
                 position={[0, 0.9, 0.01]}
                 fontSize={0.25}
@@ -149,8 +151,6 @@ function VRNativeUIPanel({ position, buttonRefs, buttons }: { position: [number,
                 VR EXPERIENCE
                 <meshBasicMaterial transparent opacity={animationProgress.subtitle} />
             </Text>
-
-            {/* Buttons */}
             {buttons.map((button, index) => {
                 const yOffset = 0.3 - index * 0.5
                 const isHovered = hoveredButton === index
@@ -158,12 +158,10 @@ function VRNativeUIPanel({ position, buttonRefs, buttons }: { position: [number,
                 const scale = isHovered ? 1.05 : 1
                 return (
                     <group key={index} position={[0, yOffset, 0.01]} scale={scale}>
-                        {/* Button background */}
                         <mesh position={[0, 0, -0.01]}>
                             <planeGeometry args={[1.8, 0.36]} />
                             <meshBasicMaterial color={isHovered ? "#2e3192" : "#f8f8f8"} transparent opacity={anim} />
                         </mesh>
-                        {/* Button text */}
                         <Text
                             position={[0, 0, 0.02]}
                             fontSize={0.19}
@@ -176,7 +174,6 @@ function VRNativeUIPanel({ position, buttonRefs, buttons }: { position: [number,
                             {button.text}
                             <meshBasicMaterial transparent opacity={anim} />
                         </Text>
-                        {/* Clickable plane */}
                         <mesh
                             name={`button-${index}`}
                             onClick={() => handleButtonClick(index)}
@@ -189,8 +186,6 @@ function VRNativeUIPanel({ position, buttonRefs, buttons }: { position: [number,
                     </group>
                 )
             })}
-
-            {/* Credit Section */}
             <Text
                 position={[0, -2.1, 0.01]}
                 fontSize={0.17}
@@ -254,7 +249,6 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs, bu
             const raycaster = new THREE.Raycaster()
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera)
 
-            // Find button meshes
             const buttonMeshes = scene.children
                 .filter((child) => child.type === "Group" && child.position.z === -2)
                 .flatMap((group) =>
@@ -464,11 +458,8 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs, bu
 
             {deviceType === "vr" && <VRNativeUIPanel position={[0, 0, -2]} buttonRefs={buttonRefs} buttons={buttons} />}
 
-            {deviceType === "vr" && (
-                <group position={[0, 0, -0.5]}>
-                    <GazePointer active={gazeTarget !== null} />
-                </group>
-            )}
+            {deviceType === "vr" && <GazePointer active={gazeTarget !== null} />}
+
             <OrbitControls
                 ref={controlsRef}
                 enableZoom={false}
