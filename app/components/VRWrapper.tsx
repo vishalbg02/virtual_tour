@@ -22,7 +22,7 @@ function GazePointer({ active }: { active: boolean }) {
 
     useFrame(() => {
         if (active && progress < 1) {
-            setProgress((prev) => Math.min(prev + 0.0025, 1)) // 4-second gaze
+            setProgress((prev) => Math.min(prev + 0.0005, 1)) // 20-second gaze
         } else if (!active && progress > 0) {
             setProgress((prev) => Math.max(prev - 0.05, 0))
         }
