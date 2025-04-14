@@ -6,6 +6,13 @@ import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber"
 import { PerspectiveCamera, OrbitControls, Sphere, Html, Text, Ring } from "@react-three/drei"
 import * as THREE from "three"
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
+import { useRouter } from "next/navigation"
+
+interface Button {
+    text: string
+    href: string
+    external?: boolean
+}
 
 type DeviceType = "desktop" | "mobile" | "vr"
 
@@ -15,35 +22,45 @@ interface VRWrapperProps {
     isVRSupported: boolean
     deviceType: DeviceType
     buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>
+    buttons: Button[]
 }
 
 function GazePointer({ active }: { active: boolean }) {
     const [progress, setProgress] = useState<number>(0)
+    const ringRef = useRef<THREE.Mesh>(null)
+    const dotRef = useRef<THREE.Mesh>(null)
 
-    useFrame(() => {
-        if (active && progress < 1) {
-            setProgress((prev) => Math.min(prev + 0.0025, 1)) // 4-second gaze
-        } else if (!active && progress > 0) {
-            setProgress((prev) => Math.max(prev - 0.05, 0))
+    useFrame((_, delta: number) => {
+        if (active) {
+            setProgress((prev) => Math.min(prev + delta / 4, 1)) // 4-second fill
+        } else {
+            setProgress((prev) => Math.max(prev - delta / 2, 0)) // Quick reset
+        }
+
+        if (ringRef.current && dotRef.current) {
+            const pulse = 1 + 0.15 * Math.sin(Date.now() * 0.003) // Smoother pulsation
+            ringRef.current.scale.setScalar(active ? pulse : 1)
+            dotRef.current.scale.setScalar(active ? 1 + progress * 0.5 : 1) // Dot grows
         }
     })
 
     return (
         <group>
             <Ring
-                args={[0.03, 0.04, 32]} // Inner radius 0.03, outer 0.04
+                ref={ringRef}
+                args={[0.06, 0.07, 32]} // Slightly larger
                 rotation={[Math.PI / 2, 0, 0]}
             >
                 <meshBasicMaterial
                     color="#2e3192"
                     transparent
-                    opacity={active ? 0.8 : 0}
+                    opacity={active ? 0.8 + 0.2 * progress : 0}
                     side={THREE.DoubleSide}
                     toneMapped={false}
                 />
             </Ring>
-            <mesh>
-                <sphereGeometry args={[active ? 0.015 : 0.01, 16, 16]} />
+            <mesh ref={dotRef}>
+                <sphereGeometry args={[active ? 0.025 : 0.02, 16, 16]} />
                 <meshBasicMaterial
                     color="white"
                     transparent
@@ -55,7 +72,7 @@ function GazePointer({ active }: { active: boolean }) {
     )
 }
 
-function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, number]; buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]> }) {
+function VRNativeUIPanel({ position, buttonRefs, buttons }: { position: [number, number, number]; buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>; buttons: Button[] }) {
     const logoTexture = useLoader(THREE.TextureLoader, "/images/christ-logo.png")
     const [hoveredButton, setHoveredButton] = useState<number | null>(null)
     const [animationProgress, setAnimationProgress] = useState({
@@ -65,22 +82,29 @@ function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, 
         buttons: [0, 0, 0, 0],
         credits: 0,
     })
+    const router = useRouter()
 
-    const buttons = [
-        { text: "Enter VR Tour" },
-        { text: "Meet The Team" },
-        { text: "About The Project" },
-        { text: "Credits" },
-    ]
+    const handleButtonClick = (index: number) => {
+        const button = buttons[index]
+        console.log("VR button clicked:", index, button.text, button.href)
+        if (button.external) {
+            window.open(button.href, "_blank")
+        } else {
+            router.push(button.href)
+        }
+        // Trigger DOM button for consistency
+        if (buttonRefs.current[index]) {
+            buttonRefs.current[index]?.click()
+        }
+    }
 
-    // Animation timing (matching CSS delays)
     useFrame((_, delta: number) => {
         setAnimationProgress((prev) => ({
-            logo: Math.min(prev.logo + delta / 0.8, 1), // 0.8s, 0.3s delay
-            title: Math.min(prev.title + delta / 0.8, 1), // 0.8s, 0.5s delay
-            subtitle: Math.min(prev.subtitle + delta / 0.8, 1), // 0.8s, 0.7s delay
-            buttons: prev.buttons.map((val) => Math.min(val + delta / 0.6, 1)), // 0.6s, 0.9s-1.2s delay
-            credits: Math.min(prev.credits + delta / 0.8, 1), // 0.8s, 1.4s delay
+            logo: Math.min(prev.logo + delta / 0.8, 1),
+            title: Math.min(prev.title + delta / 0.8, 1),
+            subtitle: Math.min(prev.subtitle + delta / 0.8, 1),
+            buttons: prev.buttons.map((val) => Math.min(val + delta / 0.6, 1)),
+            credits: Math.min(prev.credits + delta / 0.8, 1),
         }))
     })
 
@@ -89,7 +113,7 @@ function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, 
             {/* Card background */}
             <mesh position={[0, 0, -0.05]}>
                 <planeGeometry args={[4.5, 5.5]} />
-                <meshBasicMaterial color="rgba(255, 255, 255, 0.95)" transparent />
+                <meshBasicMaterial color="#ffffff" opacity={0.95} transparent />
             </mesh>
 
             {/* Logo */}
@@ -154,11 +178,8 @@ function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, 
                         </Text>
                         {/* Clickable plane */}
                         <mesh
-                            onClick={() => {
-                                if (buttonRefs.current[index]) {
-                                    buttonRefs.current[index]?.click()
-                                }
-                            }}
+                            name={`button-${index}`}
+                            onClick={() => handleButtonClick(index)}
                             onPointerOver={() => setHoveredButton(index)}
                             onPointerOut={() => setHoveredButton(null)}
                         >
@@ -198,7 +219,7 @@ function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, 
     )
 }
 
-function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
+function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs, buttons }: VRWrapperProps) {
     const texture = useLoader(THREE.TextureLoader, "/images/campus-bg.jpg", (loader) => {
         loader.setCrossOrigin("anonymous")
     })
@@ -216,54 +237,61 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     const [gazeTarget, setGazeTarget] = useState<number | null>(null)
     const gazeTimerRef = useRef<number>(0)
     const gazeThreshold = 4
-    const { size } = useThree()
     const vrSessionRef = useRef<XRSession | null>(null)
     const [, setInVRMode] = useState(false)
+    const router = useRouter()
 
     useEffect(() => {
-        if (deviceType === "mobile" || deviceType === "vr") {
-            setGazeTarget(0) // Initialize gaze target
+        if (deviceType === "vr" || deviceType === "mobile") {
+            setGazeTarget(null)
             console.log("Gaze target initialized:", deviceType, gazeTarget)
         }
         setInVRMode(deviceType === "vr")
     }, [deviceType])
 
     useFrame((_, delta: number) => {
-        if (deviceType === "vr" || deviceType === "mobile") {
+        if (deviceType === "vr") {
             const raycaster = new THREE.Raycaster()
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera)
-            const intersects = buttonRefs.current
-                .map((btn, index) => {
-                    if (!btn) return null
-                    const rect = btn.getBoundingClientRect()
-                    const vector = new THREE.Vector3(
-                        ((rect.left + rect.width / 2) / size.width) * 2 - 1,
-                        -((rect.top + rect.height / 2) / size.height) * 2 + 1,
-                        -2, // Match UI depth
-                    )
-                    vector.unproject(camera)
-                    const dir = vector.sub(camera.position).normalize()
-                    const distance = -camera.position.z / dir.z
-                    const pos = camera.position.clone().add(dir.multiplyScalar(distance))
-                    const dist = camera.position.distanceTo(pos)
-                    return { index, distance: dist }
-                })
-                .filter((item): item is { index: number; distance: number } => item !== null)
-                .sort((a, b) => a.distance - b.distance)
+
+            // Find button meshes
+            const buttonMeshes = scene.children
+                .filter((child) => child.type === "Group" && child.position.z === -2)
+                .flatMap((group) =>
+                    group.children.filter((child) => child.type === "Group" && child.children.some((c) => c.name.startsWith("button-")))
+                )
+                .flatMap((buttonGroup) => buttonGroup.children.filter((child) => child.name.startsWith("button-")));
+
+            console.log("Button meshes found:", buttonMeshes.length, buttonMeshes.map((m) => m.name))
+
+            const intersects = raycaster.intersectObjects(buttonMeshes, true)
 
             if (intersects.length > 0) {
                 const closest = intersects[0]
-                if (gazeTarget !== closest.index) {
-                    setGazeTarget(closest.index)
-                    gazeTimerRef.current = 0
-                    console.log("Gaze target set:", closest.index)
-                } else {
-                    gazeTimerRef.current += delta
-                    if (gazeTimerRef.current >= gazeThreshold) {
-                        buttonRefs.current[closest.index]?.click()
+                const index = parseInt(closest.object.name.replace("button-", ""), 10)
+                if (!isNaN(index)) {
+                    if (gazeTarget !== index) {
+                        setGazeTarget(index)
                         gazeTimerRef.current = 0
-                        setGazeTarget(null)
-                        console.log("Button clicked via gaze:", closest.index)
+                        console.log("Gaze target set:", index, buttons[index].text)
+                    } else {
+                        gazeTimerRef.current += delta
+                        console.log("Gaze timer:", gazeTimerRef.current, "Target:", index)
+                        if (gazeTimerRef.current >= gazeThreshold) {
+                            console.log("Attempting to click button:", index, buttons[index])
+                            const button = buttons[index]
+                            if (button.external) {
+                                window.open(button.href, "_blank")
+                            } else {
+                                router.push(button.href)
+                            }
+                            if (buttonRefs.current[index]) {
+                                buttonRefs.current[index]?.click()
+                            }
+                            gazeTimerRef.current = 0
+                            setGazeTarget(null)
+                            console.log("Button clicked via gaze:", index, button.text)
+                        }
                     }
                 }
             } else if (gazeTarget !== null) {
@@ -313,7 +341,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
 
     const initVRSession = async () => {
         if (vrSessionRef.current) {
-            console.log("VR session already active, not creating a new one")
+            console.log("VR session already active")
             return true
         }
 
@@ -328,7 +356,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
 
                 const isSupported = await xr.xr.isSessionSupported("immersive-vr")
                 if (!isSupported) {
-                    console.warn("VR not supported on this device")
+                    console.warn("VR not supported")
                     return false
                 }
 
@@ -359,7 +387,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
 
                 return true
             } catch (error) {
-                console.error("Error initializing VR session:", error)
+                console.error("Error initializing VR:", error)
                 return false
             }
         }
@@ -426,7 +454,6 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                                 background: "rgba(255, 255, 255, 0.95)",
                                 padding: "2.5rem 2rem",
                                 borderRadius: "20px",
-                                boxShadow: "0 10px 30px rgba(0, 0, 0, 0.15)",
                             }}
                         >
                             {children}
@@ -435,10 +462,10 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 </mesh>
             )}
 
-            {deviceType === "vr" && <VRNativeUIPanel position={[0, 0, -2]} buttonRefs={buttonRefs} />}
+            {deviceType === "vr" && <VRNativeUIPanel position={[0, 0, -2]} buttonRefs={buttonRefs} buttons={buttons} />}
 
-            {(deviceType === "vr" || deviceType === "mobile") && (
-                <group position={[0, 0, -1]}>
+            {deviceType === "vr" && (
+                <group position={[0, 0, -0.5]}>
                     <GazePointer active={gazeTarget !== null} />
                 </group>
             )}
@@ -459,11 +486,11 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
     )
 }
 
-export default function VRWrapper({ children, onExit, isVRSupported, deviceType, buttonRefs }: VRWrapperProps) {
+export default function VRWrapper({ children, onExit, isVRSupported, deviceType, buttonRefs, buttons }: VRWrapperProps) {
     return (
         <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
             <Canvas gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}>
-                <VRContent onExit={onExit} isVRSupported={isVRSupported} deviceType={deviceType} buttonRefs={buttonRefs}>
+                <VRContent onExit={onExit} isVRSupported={isVRSupported} deviceType={deviceType} buttonRefs={buttonRefs} buttons={buttons}>
                     {children}
                 </VRContent>
             </Canvas>
