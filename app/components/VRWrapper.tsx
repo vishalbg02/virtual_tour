@@ -26,21 +26,28 @@ interface VRWrapperProps {
 }
 
 function GazePointer({ active }: { active: boolean }) {
-    const { camera } = useThree()
+    const { camera, gl } = useThree()
     const groupRef = useRef<THREE.Group>(null)
     const ringRef = useRef<THREE.Mesh>(null)
     const dotRef = useRef<THREE.Mesh>(null)
     const [progress, setProgress] = useState<number>(0)
 
-    useFrame((_, delta: number) => {
-        if (groupRef.current) {
-            // Position the gaze pointer along the camera's forward direction
-            const distance = 0.5 // Distance from camera
-            const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
-            groupRef.current.position.copy(camera.position).add(forward.multiplyScalar(distance))
-            groupRef.current.quaternion.copy(camera.quaternion) // Align with camera rotation
+    useEffect(() => {
+        if (groupRef.current && gl.xr.isPresenting) {
+            // Add the gaze pointer as a child of the camera to lock it to the view
+            camera.add(groupRef.current)
+            // Position it directly in front of the camera (centered in view)
+            groupRef.current.position.set(0, 0, -0.5) // 0.5 units in front
         }
+        return () => {
+            // Remove from camera when unmounting
+            if (groupRef.current && camera) {
+                camera.remove(groupRef.current)
+            }
+        }
+    }, [camera, gl.xr.isPresenting])
 
+    useFrame((_, delta: number) => {
         if (active) {
             setProgress((prev) => Math.min(prev + delta / 4, 1)) // 4-second fill
         } else {
