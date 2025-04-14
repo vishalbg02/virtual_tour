@@ -81,29 +81,73 @@ function DebugBox({ position }: { position: [number, number, number] }) {
 }
 
 function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, number]; buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]> }) {
+    const logoTexture = useLoader(THREE.TextureLoader, "/images/christ-logo.png");
+    const [hoveredButton, setHoveredButton] = useState<number | null>(null);
+
+    const buttons = [
+        { text: "Enter VR Tour" },
+        { text: "Meet The Team" },
+        { text: "About The Project" },
+        { text: "Credits" },
+    ];
+
     return (
         <group position={position}>
-            {/* Background panel */}
+            {/* Card background with shadow effect */}
             <mesh position={[0, 0, -0.1]}>
-                <planeGeometry args={[4, 3]} />
-                <meshBasicMaterial color="#f0f0f0" />
-            </mesh>
-
-            {/* Content panel */}
-            <mesh position={[0, 0, 0]}>
-                <planeGeometry args={[3.8, 2.8]} />
+                <planeGeometry args={[4, 5]} />
                 <meshBasicMaterial color="white" />
             </mesh>
+            {/* Shadow effect */}
+            <mesh position={[0, 0, -0.15]}>
+                <planeGeometry args={[4.2, 5.2]} />
+                <meshBasicMaterial color="rgba(0, 0, 0, 0.5)" transparent opacity={0.3} />
+            </mesh>
 
-            {/* Buttons as 3D meshes with text */}
-            {buttonRefs.current.map((_, index) => {
-                const yOffset = 0.7 - index * 0.5;
+            {/* Logo */}
+            <mesh position={[0, 1.8, 0.01]}>
+                <planeGeometry args={[1, 1]} />
+                <meshBasicMaterial map={logoTexture} transparent />
+            </mesh>
+
+            {/* Title */}
+            <Text
+                position={[0, 0.8, 0.01]}
+                fontSize={0.35}
+                color="black"
+                anchorX="center"
+                anchorY="middle"
+                maxWidth={3.5}
+                font="/fonts/Inter-Bold.ttf" // Replace with your font
+                textAlign="center"
+            >
+                Christ University (Central Campus)
+            </Text>
+
+            {/* Subtitle */}
+            <Text
+                position={[0, 0.4, 0.01]}
+                fontSize={0.25}
+                color="black"
+                anchorX="center"
+                anchorY="middle"
+                maxWidth={3.5}
+                font="/fonts/Inter-Regular.ttf" // Replace with your font
+                textAlign="center"
+            >
+                VR Experience
+            </Text>
+
+            {/* Buttons */}
+            {buttons.map((button, index) => {
+                const yOffset = -0.2 - index * 0.5;
+                const isHovered = hoveredButton === index;
                 return (
                     <group key={index} position={[0, yOffset, 0.01]}>
                         {/* Button background */}
                         <mesh>
                             <planeGeometry args={[2.5, 0.4]} />
-                            <meshBasicMaterial color="#3b82f6" />
+                            <meshBasicMaterial color={isHovered ? "#2563eb" : "#3b82f6"} />
                         </mesh>
                         {/* Button text */}
                         <Text
@@ -113,8 +157,9 @@ function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, 
                             anchorX="center"
                             anchorY="middle"
                             maxWidth={2.4}
+                            font="/fonts/Inter-Medium.ttf" // Replace with your font
                         >
-                            {`Button ${index + 1}`}
+                            {button.text}
                         </Text>
                         {/* Clickable plane */}
                         <mesh
@@ -123,6 +168,8 @@ function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, 
                                     buttonRefs.current[index]?.click();
                                 }
                             }}
+                            onPointerOver={() => setHoveredButton(index)}
+                            onPointerOut={() => setHoveredButton(null)}
                         >
                             <planeGeometry args={[2.5, 0.4]} />
                             <meshBasicMaterial visible={false} />
@@ -130,6 +177,32 @@ function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, 
                     </group>
                 );
             })}
+
+            {/* Credit Section */}
+            <Text
+                position={[0, -2, 0.01]}
+                fontSize={0.15}
+                color="black"
+                anchorX="center"
+                anchorY="middle"
+                maxWidth={3.5}
+                font="/fonts/Inter-Regular.ttf" // Replace with your font
+                textAlign="center"
+            >
+                Guided by Dr. Suresh K
+            </Text>
+            <Text
+                position={[0, -2.3, 0.01]}
+                fontSize={0.15}
+                color="black"
+                anchorX="center"
+                anchorY="middle"
+                maxWidth={3.5}
+                font="/fonts/Inter-Regular.ttf" // Replace with your font
+                textAlign="center"
+            >
+                Directed by Dr. Ashok Immanuel V
+            </Text>
         </group>
     );
 }
