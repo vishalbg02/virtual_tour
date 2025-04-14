@@ -73,7 +73,7 @@ function GazePointer({ active }: { active: boolean }) {
 }
 
 function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, number]; buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]> }) {
-    const logoTexture = useLoader(THREE.TextureLoader, "/images/christ-logo1.png")
+    const logoTexture = useLoader(THREE.TextureLoader, "/images/christ-logo1.jpg")
     const [hoveredButton, setHoveredButton] = useState<number | null>(null)
     const [animationProgress, setAnimationProgress] = useState({
         logo: 0,
