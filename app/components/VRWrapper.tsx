@@ -3,10 +3,9 @@
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber"
-import { PerspectiveCamera, OrbitControls, Sphere, Html, Box } from "@react-three/drei"
+import { PerspectiveCamera, OrbitControls, Sphere, Html, Box, Text } from "@react-three/drei"
 import * as THREE from "three"
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
-import html2canvas from 'html2canvas';
 
 type DeviceType = "desktop" | "mobile" | "vr"
 
@@ -81,75 +80,56 @@ function DebugBox({ position }: { position: [number, number, number] }) {
     )
 }
 
-function VRUIPanel({ position, children }: { position: [number, number, number]; children: React.ReactNode }) {
-    const texture = new THREE.CanvasTexture(document.createElement('canvas'));
-    const htmlRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if (!htmlRef.current) return;
-
-        const observer = new MutationObserver(() => {
-            if (htmlRef.current) {
-                html2canvas(htmlRef.current).then(canvas => {
-                    texture.image = canvas;
-                    texture.needsUpdate = true;
-                });
-            }
-        });
-
-        observer.observe(htmlRef.current, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            characterData: true
-        });
-
-        html2canvas(htmlRef.current).then(canvas => {
-            texture.image = canvas;
-            texture.needsUpdate = true;
-        });
-
-        return () => observer.disconnect();
-    }, [htmlRef, texture]);
-
+function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, number]; buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]> }) {
     return (
         <group position={position}>
+            {/* Background panel */}
             <mesh position={[0, 0, -0.1]}>
                 <planeGeometry args={[4, 3]} />
                 <meshBasicMaterial color="#f0f0f0" />
             </mesh>
 
+            {/* Content panel */}
             <mesh position={[0, 0, 0]}>
                 <planeGeometry args={[3.8, 2.8]} />
-                <meshBasicMaterial map={texture} transparent={true} />
+                <meshBasicMaterial color="white" />
             </mesh>
 
-            <Html
-                transform
-                distanceFactor={1}
-                position={[0, 0, 0]}
-                style={{
-                    width: "800px",
-                    height: "600px",
-                    opacity: 0,
-                    pointerEvents: "none",
-                    visibility: "hidden",
-                }}
-            >
-                <div
-                    ref={htmlRef}
-                    style={{
-                        width: "100%",
-                        maxWidth: "800px",
-                        background: "white",
-                        padding: "30px",
-                        borderRadius: "15px",
-                        boxShadow: "0 0 30px rgba(0, 0, 0, 0.5)",
-                    }}
-                >
-                    {children}
-                </div>
-            </Html>
+            {/* Buttons as 3D meshes with text */}
+            {buttonRefs.current.map((_, index) => {
+                const yOffset = 0.7 - index * 0.5;
+                return (
+                    <group key={index} position={[0, yOffset, 0.01]}>
+                        {/* Button background */}
+                        <mesh>
+                            <planeGeometry args={[2.5, 0.4]} />
+                            <meshBasicMaterial color="#3b82f6" />
+                        </mesh>
+                        {/* Button text */}
+                        <Text
+                            position={[0, 0, 0.02]}
+                            fontSize={0.2}
+                            color="white"
+                            anchorX="center"
+                            anchorY="middle"
+                            maxWidth={2.4}
+                        >
+                            {`Button ${index + 1}`}
+                        </Text>
+                        {/* Clickable plane */}
+                        <mesh
+                            onClick={() => {
+                                if (buttonRefs.current[index]) {
+                                    buttonRefs.current[index]?.click();
+                                }
+                            }}
+                        >
+                            <planeGeometry args={[2.5, 0.4]} />
+                            <meshBasicMaterial visible={false} />
+                        </mesh>
+                    </group>
+                );
+            })}
         </group>
     );
 }
@@ -395,28 +375,7 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
             )}
 
             {deviceType === "vr" && (
-                <>
-                    <VRUIPanel position={[0, 0, -2]}>{children}</VRUIPanel>
-                    <group position={[0, 0, -1.99]}>
-                        {buttonRefs.current.map((_, index) => {
-                            const yOffset = 0.7 - index * 0.5;
-                            return (
-                                <mesh
-                                    key={index}
-                                    position={[0, yOffset, 0]}
-                                    onClick={() => {
-                                        if (buttonRefs.current[index]) {
-                                            buttonRefs.current[index]?.click();
-                                        }
-                                    }}
-                                >
-                                    <planeGeometry args={[2.5, 0.4]} />
-                                    <meshBasicMaterial visible={false} />
-                                </mesh>
-                            );
-                        })}
-                    </group>
-                </>
+                <VRNativeUIPanel position={[0, 0, -2]} buttonRefs={buttonRefs} />
             )}
 
             {(deviceType === "vr" || deviceType === "mobile") && (
