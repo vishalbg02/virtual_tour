@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import Image from "next/image"
 import { useState, useEffect, useRef } from "react"
 import styles from "./styles.module.css"
@@ -84,6 +83,13 @@ export default function Home() {
     const [deviceType, setDeviceType] = useState<DeviceType>("desktop")
     const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
 
+    const buttons: Button[] = [
+        { text: "Enter VR Tour", href: "https://app.seekbeak.com/v/YbjNDVVm1A7", external: true },
+        { text: "Meet The Team", href: "/meet_the_team" },
+        { text: "About The Project", href: "/about" },
+        { text: "Credits", href: "/credits" },
+    ]
+
     useEffect(() => {
         const userAgent = navigator.userAgent.toLowerCase()
         const isMobile = /mobile|android|iphone|ipad|tablet|mobi/i.test(userAgent) || window.innerWidth < 768
@@ -142,6 +148,7 @@ export default function Home() {
                     isVRSupported={isVRSupported}
                     deviceType={deviceType}
                     buttonRefs={buttonRefs}
+                    buttons={buttons}
                 >
                     <CardUI activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />
                 </VRWrapper>

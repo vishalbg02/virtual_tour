@@ -1,19 +1,25 @@
-"use client";
+"use client"
 
-import Image from "next/image";
-import { useState, useEffect, useRef } from "react";
-import styles from "../styles.module.css";
-import Link from "next/link";
-import VRWrapper from "../components/VRWrapper";
+import Image from "next/image"
+import { useState, useEffect, useRef } from "react"
+import styles from "../styles.module.css"
+import Link from "next/link"
+import VRWrapper from "../components/VRWrapper"
+
+interface Button {
+    text: string
+    href: string
+    external?: boolean
+}
 
 interface TeamMember {
-    name: string;
-    role?: string;
-    imageSrc: string;
-    description?: string;
-    class?: string;
-    regNo?: string;
-    link?: string;
+    name: string
+    role?: string
+    imageSrc: string
+    description?: string
+    class?: string
+    regNo?: string
+    link?: string
 }
 
 function MeetTheTeamContent({
@@ -21,9 +27,9 @@ function MeetTheTeamContent({
                                 setActiveTeamMember,
                                 buttonRefs,
                             }: {
-    activeTeamMember: number | null;
-    setActiveTeamMember: (index: number | null) => void;
-    buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>;
+    activeTeamMember: number | null
+    setActiveTeamMember: (index: number | null) => void
+    buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>
 }) {
     const teamMembers: TeamMember[] = [
         {
@@ -47,7 +53,7 @@ function MeetTheTeamContent({
         { name: "Sriniketh", imageSrc: "/images/team/sriniketh.jpg", class: "BCA", regNo: "2341660" },
         { name: "Vyshnavi Kathrine", imageSrc: "/images/team/vyshnavi.jpg", class: "MSC AIML", regNo: "2448558" },
         { name: "Isar Kaur", imageSrc: "/images/team/isar.jpeg", class: "BCA", regNo: "2341631" },
-    ];
+    ]
 
     return (
         <div className={styles.card}>
@@ -94,41 +100,46 @@ function MeetTheTeamContent({
                 ))}
             </div>
             <Link href="/">
-                <button ref={(el) => {
-                    buttonRefs.current[0] = el;
-                }} className={styles.navButton}>
+                <button
+                    ref={(el) => {
+                        buttonRefs.current[0] = el
+                    }}
+                    className={styles.navButton}
+                >
                     Return to Home
                 </button>
             </Link>
         </div>
-    );
+    )
 }
 
 export default function MeetTheTeam() {
-    const [activeTeamMember, setActiveTeamMember] = useState<number | null>(null);
-    const [vrSession, setVrSession] = useState<boolean>(false);
-    const [isVRSupported, setIsVRSupported] = useState<boolean>(false);
-    const [deviceType, setDeviceType] = useState<"desktop" | "mobile" | "vr">("desktop");
-    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+    const [activeTeamMember, setActiveTeamMember] = useState<number | null>(null)
+    const [vrSession, setVrSession] = useState<boolean>(false)
+    const [isVRSupported, setIsVRSupported] = useState<boolean>(false)
+    const [deviceType, setDeviceType] = useState<"desktop" | "mobile" | "vr">("desktop")
+    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
+
+    const buttons: Button[] = [{ text: "Return to Home", href: "/" }]
 
     useEffect(() => {
-        const userAgent = navigator.userAgent.toLowerCase();
-        const isMobile = /mobile|android|iphone|ipad|tablet|mobi/i.test(userAgent) || window.innerWidth < 768;
-        setDeviceType(isMobile ? "mobile" : "desktop");
-    }, []);
+        const userAgent = navigator.userAgent.toLowerCase()
+        const isMobile = /mobile|android|iphone|ipad|tablet|mobi/i.test(userAgent) || window.innerWidth < 768
+        setDeviceType(isMobile ? "mobile" : "desktop")
+    }, [])
 
     const startVRSession = async () => {
         if ("xr" in navigator) {
-            const xr = navigator as Navigator & { xr: { isSessionSupported: (mode: string) => Promise<boolean> } };
-            const isSupported = await xr.xr.isSessionSupported("immersive-vr");
-            setIsVRSupported(isSupported);
-            setDeviceType(isSupported ? "vr" : deviceType);
-            setVrSession(true);
+            const xr = navigator as Navigator & { xr: { isSessionSupported: (mode: string) => Promise<boolean> } }
+            const isSupported = await xr.xr.isSessionSupported("immersive-vr")
+            setIsVRSupported(isSupported)
+            setDeviceType(isSupported ? "vr" : deviceType)
+            setVrSession(true)
         } else {
-            setIsVRSupported(false);
-            setVrSession(true);
+            setIsVRSupported(false)
+            setVrSession(true)
         }
-    };
+    }
 
     return (
         <main className={`${styles.root} ${styles.main}`}>
@@ -169,6 +180,7 @@ export default function MeetTheTeam() {
                     isVRSupported={isVRSupported}
                     deviceType={deviceType}
                     buttonRefs={buttonRefs}
+                    buttons={buttons}
                 >
                     <MeetTheTeamContent
                         activeTeamMember={activeTeamMember}
@@ -181,5 +193,5 @@ export default function MeetTheTeam() {
                 <Image src="/images/campus-bg.jpg" alt="BlackMed Logo" width={40} height={40} />
             </div>
         </main>
-    );
+    )
 }

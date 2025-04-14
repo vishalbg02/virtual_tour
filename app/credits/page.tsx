@@ -1,15 +1,15 @@
-"use client";
+"use client"
 
-import Image from "next/image";
-import { useState, useEffect, useRef } from "react";
-import styles from "../styles.module.css";
-import Link from "next/link";
-import VRWrapper from "../components/VRWrapper";
+import Image from "next/image"
+import { useState, useEffect, useRef } from "react"
+import styles from "../styles.module.css"
+import Link from "next/link"
+import VRWrapper from "../components/VRWrapper"
 
 interface Button {
-    text: string;
-    href: string;
-    external?: boolean;
+    text: string
+    href: string
+    external?: boolean
 }
 
 function CreditsContent({
@@ -17,19 +17,19 @@ function CreditsContent({
                             setActiveButton,
                             buttonRefs,
                         }: {
-    activeButton: string | null;
-    setActiveButton: (button: string | null) => void;
-    buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>;
+    activeButton: string | null
+    setActiveButton: (button: string | null) => void
+    buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>
 }) {
-    const handleButtonHover = (button: string) => setActiveButton(button);
-    const handleButtonLeave = () => setActiveButton(null);
+    const handleButtonHover = (button: string) => setActiveButton(button)
+    const handleButtonLeave = () => setActiveButton(null)
 
     const buttons: Button[] = [
         { text: "Back to Home", href: "/" },
         { text: "Enter SeekBeak VR Tour", href: "https://app.seekbeak.com/v/YbjNDVVm1A7", external: true },
         { text: "Meet The Team", href: "/meet_the_team" },
         { text: "About The Project", href: "/about" },
-    ];
+    ]
 
     return (
         <div className={styles.card}>
@@ -51,7 +51,7 @@ function CreditsContent({
                         <Link href={button.href} key={index} target="_blank" rel="noopener noreferrer">
                             <button
                                 ref={(el) => {
-                                    buttonRefs.current[index] = el;
+                                    buttonRefs.current[index] = el
                                 }}
                                 className={`${styles.navButton} ${activeButton === button.text ? styles.active : ""}`}
                                 onMouseEnter={() => handleButtonHover(button.text)}
@@ -64,7 +64,7 @@ function CreditsContent({
                         <Link href={button.href} key={index}>
                             <button
                                 ref={(el) => {
-                                    buttonRefs.current[index] = el;
+                                    buttonRefs.current[index] = el
                                 }}
                                 className={`${styles.navButton} ${activeButton === button.text ? styles.active : ""}`}
                                 onMouseEnter={() => handleButtonHover(button.text)}
@@ -77,34 +77,41 @@ function CreditsContent({
                 )}
             </div>
         </div>
-    );
+    )
 }
 
 export default function Credits() {
-    const [activeButton, setActiveButton] = useState<string | null>(null);
-    const [vrSession, setVrSession] = useState<boolean>(false);
-    const [isVRSupported, setIsVRSupported] = useState<boolean>(false);
-    const [deviceType, setDeviceType] = useState<"desktop" | "mobile" | "vr">("desktop");
-    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+    const [activeButton, setActiveButton] = useState<string | null>(null)
+    const [vrSession, setVrSession] = useState<boolean>(false)
+    const [isVRSupported, setIsVRSupported] = useState<boolean>(false)
+    const [deviceType, setDeviceType] = useState<"desktop" | "mobile" | "vr">("desktop")
+    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
+
+    const buttons: Button[] = [
+        { text: "Back to Home", href: "/" },
+        { text: "Enter SeekBeak VR Tour", href: "https://app.seekbeak.com/v/YbjNDVVm1A7", external: true },
+        { text: "Meet The Team", href: "/meet_the_team" },
+        { text: "About The Project", href: "/about" },
+    ]
 
     useEffect(() => {
-        const userAgent = navigator.userAgent.toLowerCase();
-        const isMobile = /mobile|android|iphone|ipad|tablet|mobi/i.test(userAgent) || window.innerWidth < 768;
-        setDeviceType(isMobile ? "mobile" : "desktop");
-    }, []);
+        const userAgent = navigator.userAgent.toLowerCase()
+        const isMobile = /mobile|android|iphone|ipad|tablet|mobi/i.test(userAgent) || window.innerWidth < 768
+        setDeviceType(isMobile ? "mobile" : "desktop")
+    }, [])
 
     const startVRSession = async () => {
         if ("xr" in navigator) {
-            const xr = navigator as Navigator & { xr: { isSessionSupported: (mode: string) => Promise<boolean> } };
-            const isSupported = await xr.xr.isSessionSupported("immersive-vr");
-            setIsVRSupported(isSupported);
-            setDeviceType(isSupported ? "vr" : deviceType);
-            setVrSession(true);
+            const xr = navigator as Navigator & { xr: { isSessionSupported: (mode: string) => Promise<boolean> } }
+            const isSupported = await xr.xr.isSessionSupported("immersive-vr")
+            setIsVRSupported(isSupported)
+            setDeviceType(isSupported ? "vr" : deviceType)
+            setVrSession(true)
         } else {
-            setIsVRSupported(false);
-            setVrSession(true);
+            setIsVRSupported(false)
+            setVrSession(true)
         }
-    };
+    }
 
     return (
         <main className={`${styles.root} ${styles.main}`}>
@@ -145,6 +152,7 @@ export default function Credits() {
                     isVRSupported={isVRSupported}
                     deviceType={deviceType}
                     buttonRefs={buttonRefs}
+                    buttons={buttons}
                 >
                     <CreditsContent activeButton={activeButton} setActiveButton={setActiveButton} buttonRefs={buttonRefs} />
                 </VRWrapper>
@@ -153,5 +161,5 @@ export default function Credits() {
                 <Image src="/images/campus-bg.jpg" alt="BlackMed Logo" width={40} height={40} />
             </div>
         </main>
-    );
+    )
 }
