@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber"
-import { PerspectiveCamera, OrbitControls, Sphere, Html, Box, Text } from "@react-three/drei"
+import { PerspectiveCamera, OrbitControls, Sphere, Html, Text } from "@react-three/drei"
 import * as THREE from "three"
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
 
@@ -72,16 +72,8 @@ function GazePointer({ active }: { active: boolean }) {
     )
 }
 
-function DebugBox({ position }: { position: [number, number, number] }) {
-    return (
-        <Box position={position} args={[0.5, 0.5, 0.5]}>
-            <meshStandardMaterial color="red" />
-        </Box>
-    )
-}
-
 function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, number]; buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]> }) {
-    const logoTexture = useLoader(THREE.TextureLoader, "/images/christ-logo.png")
+    const logoTexture = useLoader(THREE.TextureLoader, "/images/christ-logo1.png")
     const [hoveredButton, setHoveredButton] = useState<number | null>(null)
     const [animationProgress, setAnimationProgress] = useState({
         logo: 0,
@@ -101,7 +93,7 @@ function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, 
     // Animation timing (matching CSS delays)
     useFrame((_, delta: number) => {
         setAnimationProgress((prev) => ({
-            logo: Math.min(prev.logo + delta / 0.8, 1), // 0.8s duration, 0.3s delay
+            logo: Math.min(prev.logo + delta / 0.8, 1), // 0.8s, 0.3s delay
             title: Math.min(prev.title + delta / 0.8, 1), // 0.8s, 0.5s delay
             subtitle: Math.min(prev.subtitle + delta / 0.8, 1), // 0.8s, 0.7s delay
             buttons: prev.buttons.map((val) => Math.min(val + delta / 0.6, 1)), // 0.6s, 0.9s-1.2s delay
@@ -112,14 +104,9 @@ function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, 
     return (
         <group position={position}>
             {/* Card background */}
-            <mesh position={[0, 0, -0.1]}>
+            <mesh position={[0, 0, -0.05]}>
                 <planeGeometry args={[4.5, 5.5]} />
                 <meshBasicMaterial color="rgba(255, 255, 255, 0.95)" transparent />
-            </mesh>
-            {/* Shadow */}
-            <mesh position={[0, 0, -0.15]}>
-                <planeGeometry args={[4.7, 5.7]} />
-                <meshBasicMaterial color="rgba(0, 0, 0, 0.15)" transparent />
             </mesh>
 
             {/* Logo */}
@@ -130,8 +117,8 @@ function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, 
 
             {/* Title */}
             <Text
-                position={[0, 1.2, 0.01]}
-                fontSize={0.28}
+                position={[0, 1.3, 0.01]}
+                fontSize={0.29}
                 color="#2e3192"
                 anchorX="center"
                 anchorY="middle"
@@ -144,8 +131,8 @@ function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, 
 
             {/* Subtitle */}
             <Text
-                position={[0, 0.8, 0.01]}
-                fontSize={0.24}
+                position={[0, 0.9, 0.01]}
+                fontSize={0.25}
                 color="#2e3192"
                 anchorX="center"
                 anchorY="middle"
@@ -158,20 +145,21 @@ function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, 
 
             {/* Buttons */}
             {buttons.map((button, index) => {
-                const yOffset = 0.2 - index * 0.5
+                const yOffset = 0.3 - index * 0.5
                 const isHovered = hoveredButton === index
                 const anim = animationProgress.buttons[index]
+                const scale = isHovered ? 1.05 : 1 // Subtle hover scale
                 return (
-                    <group key={index} position={[0, yOffset, 0.01]}>
+                    <group key={index} position={[0, yOffset, 0.01]} scale={scale}>
                         {/* Button background */}
-                        <mesh>
+                        <mesh position={[0, 0, -0.01]}>
                             <planeGeometry args={[1.8, 0.36]} />
                             <meshBasicMaterial color={isHovered ? "#2e3192" : "#f8f8f8"} transparent opacity={anim} />
                         </mesh>
                         {/* Button text */}
                         <Text
                             position={[0, 0, 0.02]}
-                            fontSize={0.18}
+                            fontSize={0.19}
                             color={isHovered ? "#ffffff" : "#2e3192"}
                             anchorX="center"
                             anchorY="middle"
@@ -200,8 +188,8 @@ function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, 
 
             {/* Credit Section */}
             <Text
-                position={[0, -2.2, 0.01]}
-                fontSize={0.16}
+                position={[0, -2.1, 0.01]}
+                fontSize={0.17}
                 color="#2e3192"
                 anchorX="center"
                 anchorY="middle"
@@ -212,8 +200,8 @@ function VRNativeUIPanel({ position, buttonRefs }: { position: [number, number, 
                 <meshBasicMaterial transparent opacity={animationProgress.credits} />
             </Text>
             <Text
-                position={[0, -2.5, 0.01]}
-                fontSize={0.16}
+                position={[0, -2.4, 0.01]}
+                fontSize={0.17}
                 color="#2e3192"
                 anchorX="center"
                 anchorY="middle"
@@ -432,12 +420,6 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs }: 
                 <meshBasicMaterial map={texture} side={THREE.BackSide} />
             </Sphere>
 
-            <DebugBox position={[0, 0, -1]} />
-            <DebugBox position={[0, 0, -2]} />
-            <DebugBox position={[0, 0, -3]} />
-            <DebugBox position={[0, 0, -4]} />
-            <DebugBox position={[0, 0, -5]} />
-
             {deviceType !== "vr" && (
                 <mesh position={contentPosition}>
                     <Html
@@ -505,7 +487,7 @@ export default function VRWrapper({ children, onExit, isVRSupported, deviceType,
                     right: "20px",
                     width: "40px",
                     height: "40px",
-                    background: "#fff",
+                    background: "rgba(255, 255, 255, 0.95)",
                     borderRadius: "50%",
                     display: "flex",
                     alignItems: "center",
@@ -517,7 +499,7 @@ export default function VRWrapper({ children, onExit, isVRSupported, deviceType,
                 onClick={onExit}
                 title="Exit VR Preview"
             >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2e3192" strokeWidth="2">
                     <path d="M18 6L6 18" />
                     <path d="M6 6l12 12" />
                 </svg>
@@ -530,10 +512,12 @@ export default function VRWrapper({ children, onExit, isVRSupported, deviceType,
                         left: "50%",
                         transform: "translateX(-50%)",
                         padding: "10px 20px",
-                        background: "rgba(0, 0, 0, 0.7)",
-                        color: "white",
+                        background: "rgba(255, 255, 255, 0.95)",
+                        color: "#2e3192",
                         borderRadius: "20px",
                         fontFamily: "sans-serif",
+                        fontSize: "0.9rem",
+                        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
                         zIndex: 1001,
                     }}
                 >
