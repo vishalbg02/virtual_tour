@@ -8,6 +8,32 @@ import * as THREE from "three"
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
 import { useRouter } from "next/navigation"
 
+// Define Unity instance type
+interface UnityInstance {
+    SendMessage: (objectName: string, methodName: string, value: string) => void
+    SetFullscreen: (fullscreen: number) => void
+    Quit: () => Promise<void>
+}
+
+// Extend Window interface for createUnityInstance
+declare global {
+    interface Window {
+        createUnityInstance: (
+            canvas: HTMLCanvasElement,
+            config: {
+                dataUrl: string
+                frameworkUrl: string
+                codeUrl: string
+                streamingAssetsUrl: string
+                companyName: string
+                productName: string
+                productVersion: string
+            },
+            onProgress?: (progress: number) => void
+        ) => Promise<UnityInstance>
+    }
+}
+
 interface Button {
     text: string
     href: string
@@ -35,7 +61,7 @@ function GazePointer({ active, progress }: { active: boolean; progress: number }
     useEffect(() => {
         if (groupRef.current && gl.xr.isPresenting) {
             camera.add(groupRef.current)
-            groupRef.current.position.set(0, 0, -0.5) // 0.5 units in front
+            groupRef.current.position.set(0, 0, -0.5)
         }
         return () => {
             if (groupRef.current && camera) {
@@ -49,14 +75,12 @@ function GazePointer({ active, progress }: { active: boolean; progress: number }
             const pulse = 1 + 0.15 * Math.sin(Date.now() * 0.003)
             ringRef.current.scale.setScalar(active ? pulse : 1)
             dotRef.current.scale.setScalar(active ? 1 + progress * 0.5 : 1)
-            // Update progress ring's shader to show filling effect
             const material = progressRingRef.current.material as THREE.ShaderMaterial
             material.uniforms.progress.value = progress
             material.uniforms.active.value = active ? 1 : 0
         }
     })
 
-    // Shader for progress ring
     const progressShader = {
         uniforms: {
             progress: { value: 0 },
@@ -64,31 +88,30 @@ function GazePointer({ active, progress }: { active: boolean; progress: number }
             color: { value: new THREE.Color("#2e3192") },
         },
         vertexShader: `
-            varying vec2 vUv;
-            void main() {
-                vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `,
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
         fragmentShader: `
-            uniform float progress;
-            uniform float active;
-            uniform vec3 color;
-            varying vec2 vUv;
-            void main() {
-                vec2 uv = vUv - 0.5;
-                float angle = atan(uv.y, uv.x) / (2.0 * 3.14159) + 0.25;
-                float dist = length(uv);
-                float ring = step(0.4, dist) * step(dist, 0.45);
-                float alpha = active * ring * step(angle, progress);
-                gl_FragColor = vec4(color, alpha * (0.8 + 0.2 * progress));
-            }
-        `,
+        uniform float progress;
+        uniform float active;
+        uniform vec3 color;
+        varying vec2 vUv;
+        void main() {
+            vec2 uv = vUv - 0.5;
+            float angle = atan(uv.y, uv.x) / (2.0 * 3.14159) + 0.25;
+            float dist = length(uv);
+            float ring = step(0.4, dist) * step(dist, 0.45);
+            float alpha = active * ring * step(angle, progress);
+            gl_FragColor = vec4(color, alpha * (0.8 + 0.2 * progress));
+        }
+    `,
     }
 
     return (
         <group ref={groupRef}>
-            {/* Static ring */}
             <mesh ref={ringRef}>
                 <ringGeometry args={[0.06, 0.07, 32]} />
                 <meshBasicMaterial
@@ -99,7 +122,6 @@ function GazePointer({ active, progress }: { active: boolean; progress: number }
                     toneMapped={false}
                 />
             </mesh>
-            {/* Progress ring */}
             <mesh ref={progressRingRef}>
                 <ringGeometry args={[0.04, 0.05, 64]} />
                 <shaderMaterial
@@ -111,7 +133,6 @@ function GazePointer({ active, progress }: { active: boolean; progress: number }
                     toneMapped={false}
                 />
             </mesh>
-            {/* Central dot */}
             <mesh ref={dotRef}>
                 <sphereGeometry args={[active ? 0.025 : 0.02, 16, 16]} />
                 <meshBasicMaterial
@@ -125,7 +146,15 @@ function GazePointer({ active, progress }: { active: boolean; progress: number }
     )
 }
 
-function VRNativeUIPanel({ position, buttonRefs, buttons }: { position: [number, number, number]; buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>; buttons: Button[] }) {
+function VRNativeUIPanel({
+                             position,
+                             buttonRefs,
+                             buttons,
+                         }: {
+    position: [number, number, number]
+    buttonRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>
+    buttons: Button[]
+}) {
     const logoTexture = useLoader(THREE.TextureLoader, "/images/christ-logo.png")
     const [hoveredButton, setHoveredButton] = useState<number | null>(null)
     const [animationProgress, setAnimationProgress] = useState({
@@ -292,18 +321,17 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs, bu
             const raycaster = new THREE.Raycaster()
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera)
 
-            // Ensure button meshes are correctly identified
             const buttonMeshes = scene.children
                 .filter((child) => child.type === "Group" && child.position.z === -2)
                 .flatMap((group) =>
                     group.children.filter((child) => child.type === "Group" && child.children.some((c) => c.name.startsWith("button-")))
                 )
-                .flatMap((buttonGroup) => buttonGroup.children.filter((child) => child.name.startsWith("button-")));
+                .flatMap((buttonGroup) => buttonGroup.children.filter((child) => child.name.startsWith("button-")))
 
             if (buttonMeshes.length === 0) {
-                console.warn("No button meshes found in scene");
+                console.warn("No button meshes found in scene")
             } else {
-                console.log("Button meshes found:", buttonMeshes.length, buttonMeshes.map((m) => m.name));
+                console.log("Button meshes found:", buttonMeshes.length, buttonMeshes.map((m) => m.name))
             }
 
             const intersects = raycaster.intersectObjects(buttonMeshes, true)
@@ -315,12 +343,12 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs, bu
                     if (gazeTarget !== index) {
                         setGazeTarget(index)
                         gazeTimerRef.current = 0
-                        console.log("Gaze target set:", index, buttons[index]?.text || "Unknown");
+                        console.log("Gaze target set:", index, buttons[index]?.text || "Unknown")
                     } else {
                         gazeTimerRef.current += delta
-                        console.log("Gaze timer:", gazeTimerRef.current, "Target:", index);
+                        console.log("Gaze timer:", gazeTimerRef.current, "Target:", index)
                         if (gazeTimerRef.current >= gazeThreshold && index < buttons.length) {
-                            console.log("Triggering button:", index, buttons[index]);
+                            console.log("Triggering button:", index, buttons[index])
                             const button = buttons[index]
                             try {
                                 if (button.external) {
@@ -532,13 +560,136 @@ function VRContent({ children, onExit, isVRSupported, deviceType, buttonRefs, bu
 }
 
 export default function VRWrapper({ children, onExit, isVRSupported, deviceType, buttonRefs, buttons }: VRWrapperProps) {
+    const [unityLoaded, setUnityLoaded] = useState(false)
+    const unityContainerRef = useRef<HTMLDivElement>(null)
+    const router = useRouter()
+
+    useEffect(() => {
+        if (deviceType === "vr" && isVRSupported) {
+            const loadUnity = async () => {
+                try {
+                    // Create canvas for Unity
+                    const canvas = document.createElement("canvas")
+                    canvas.id = "unity-canvas"
+                    canvas.style.width = "100%"
+                    canvas.style.height = "100%"
+                    if (unityContainerRef.current) {
+                        unityContainerRef.current.appendChild(canvas)
+                    }
+
+                    // Load Unity loader script
+                    const script = document.createElement("script")
+                    script.src = "/unity/vr-build/Build/Downloads.loader.js"
+                    script.async = true
+                    document.body.appendChild(script)
+
+                    script.onload = () => {
+                        if (window.createUnityInstance) {
+                            window
+                                .createUnityInstance(canvas, {
+                                    dataUrl: "/unity/vr-build/Build/Downloads.data.br",
+                                    frameworkUrl: "/unity/vr-build/Build/Downloads.framework.js.br",
+                                    codeUrl: "/unity/vr-build/Build/Downloads.wasm.br",
+                                    streamingAssetsUrl: "/unity/vr-build/StreamingAssets",
+                                    companyName: "DefaultCompany",
+                                    productName: "vrtour",
+                                    productVersion: "0.1.0",
+                                })
+                                .then((unityInstance: UnityInstance) => {
+                                    setUnityLoaded(true)
+                                    // Pass buttons to Unity
+                                    unityInstance.SendMessage("VRManager", "SetButtons", JSON.stringify(buttons))
+                                })
+                                .catch((error: Error) => {
+                                    console.error("Failed to load Unity:", error)
+                                    setUnityLoaded(false)
+                                })
+                        } else {
+                            console.error("createUnityInstance not found")
+                            setUnityLoaded(false)
+                        }
+                    }
+
+                    script.onerror = () => {
+                        console.error("Failed to load Unity loader script")
+                        setUnityLoaded(false)
+                    }
+                } catch (error) {
+                    console.error("Error loading Unity:", error)
+                    setUnityLoaded(false)
+                }
+            }
+            loadUnity()
+
+            // Handle navigation from Unity
+            const handleMessage = (event: MessageEvent) => {
+                if (event.data.type === "navigate") {
+                    const { href, external } = event.data
+                    if (external) {
+                        window.open(href, "_blank")
+                    } else {
+                        router.push(href)
+                    }
+                    const index = buttons.findIndex((b) => b.href === href)
+                    if (index !== -1 && buttonRefs.current[index]) {
+                        buttonRefs.current[index]?.click()
+                    }
+                }
+            }
+            window.addEventListener("message", handleMessage)
+
+            return () => {
+                window.removeEventListener("message", handleMessage)
+                document.querySelectorAll("script[src*='Downloads.loader.js']").forEach((script) => script.remove())
+                if (unityContainerRef.current) {
+                    unityContainerRef.current.innerHTML = ""
+                }
+            }
+        }
+    }, [deviceType, isVRSupported, buttons, router, buttonRefs])
+
     return (
         <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 10 }}>
-            <Canvas gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}>
-                <VRContent onExit={onExit} isVRSupported={isVRSupported} deviceType={deviceType} buttonRefs={buttonRefs} buttons={buttons}>
-                    {children}
-                </VRContent>
-            </Canvas>
+            {deviceType === "vr" && isVRSupported ? (
+                <>
+                    <div
+                        ref={unityContainerRef}
+                        style={{
+                            width: "100%",
+                            height: "100%",
+                            display: unityLoaded ? "block" : "none",
+                        }}
+                    />
+                    {!unityLoaded && (
+                        <div
+                            style={{
+                                position: "absolute",
+                                top: "50%",
+                                left: "50%",
+                                transform: "translate(-50%, -50%)",
+                                color: "#2e3192",
+                                fontFamily: "sans-serif",
+                                fontSize: "1.2rem",
+                                textAlign: "center",
+                            }}
+                        >
+                            Loading VR Experience...
+                        </div>
+                    )}
+                </>
+            ) : (
+                <Canvas gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}>
+                    <VRContent
+                        onExit={onExit}
+                        isVRSupported={isVRSupported}
+                        deviceType={deviceType}
+                        buttonRefs={buttonRefs}
+                        buttons={buttons}
+                    >
+                        {children}
+                    </VRContent>
+                </Canvas>
+            )}
             <div
                 style={{
                     position: "absolute",
