@@ -579,7 +579,7 @@ export default function VRWrapper({ children, onExit, isVRSupported, deviceType,
 
                     // Load Unity loader script
                     const script = document.createElement("script")
-                    script.src = "/unity/vr-build/Build/Downloads.loader.js"
+                    script.src = "/unity/vr-build/Build/123.loader.js"
                     script.async = true
                     document.body.appendChild(script)
 
@@ -587,9 +587,9 @@ export default function VRWrapper({ children, onExit, isVRSupported, deviceType,
                         if (window.createUnityInstance) {
                             window
                                 .createUnityInstance(canvas, {
-                                    dataUrl: "/unity/vr-build/Build/Downloads.data.br",
-                                    frameworkUrl: "/unity/vr-build/Build/Downloads.framework.js.br",
-                                    codeUrl: "/unity/vr-build/Build/Downloads.wasm.br",
+                                    dataUrl: "/unity/vr-build/Build/123.data",
+                                    frameworkUrl: "/unity/vr-build/Build/123.framework.js",
+                                    codeUrl: "/unity/vr-build/Build/123.wasm",
                                     streamingAssetsUrl: "/unity/vr-build/StreamingAssets",
                                     companyName: "DefaultCompany",
                                     productName: "vrtour",
@@ -640,7 +640,7 @@ export default function VRWrapper({ children, onExit, isVRSupported, deviceType,
 
             return () => {
                 window.removeEventListener("message", handleMessage)
-                document.querySelectorAll("script[src*='Downloads.loader.js']").forEach((script) => script.remove())
+                document.querySelectorAll("script[src*='123.loader.js']").forEach((script) => script.remove())
                 if (unityContainerRef.current) {
                     unityContainerRef.current.innerHTML = ""
                 }
