@@ -1,0 +1,17 @@
+{
+  "headers": [
+    {
+      "source": "/unity/vr-build/Build/(.*.br)",
+      "headers": [
+        {
+          "key": "Content-Encoding",
+          "value": "br"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/javascript"
+        }
+      ]
+    }
+  ]
+}
